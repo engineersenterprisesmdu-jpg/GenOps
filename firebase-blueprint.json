@@ -1,0 +1,31 @@
+{
+  "entities": {
+    "UserBackup": {
+      "title": "User Backup",
+      "description": "The complete database state synchronized for a user",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner user ID"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of the last sync"
+        },
+        "database": {
+          "type": "object",
+          "description": "The serialized AppDatabase object containing company, clients, gensets, zonePrices, and siteLogs"
+        }
+      },
+      "required": ["userId", "updatedAt", "database"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/backups/active": {
+      "schema": "UserBackup",
+      "description": "Active backup document containing the complete AppDatabase JSON payload for the user"
+    }
+  }
+}

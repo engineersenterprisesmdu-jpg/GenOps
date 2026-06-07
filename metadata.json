@@ -1,0 +1,6 @@
+{
+  "name": "Diesel Generator Log & Billing System",
+  "description": "Log sheet and billing invoice generator for diesel generator running hours and diesel consumption across sites.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,143 @@
+@import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm 12mm 10mm 12mm !important;
+  }
+
+  @page landscape-sheet {
+    size: A4 landscape !important;
+    margin: 8mm 10mm 8mm 10mm !important;
+  }
+
+  /* Hide all non-printable app containers */
+  aside, nav, header, footer, .print\:hidden, [class *="print:hidden"], button, select, option {
+    display: none !important;
+  }
+
+  /* Reset layout constraints and nested scroll parents to enable full multi-page visual layout flow */
+  body, html, #root, #applet-container, main, #main-container {
+    background: #ffffff !important;
+    color: #000000 !important;
+    display: block !important;
+    float: none !important;
+    position: relative !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+   /* Ensure the overlay container behaves nicely on print as a normal block container with landscape orientation */
+  #consolidated-report-overlay {
+    page: landscape-sheet !important;
+    position: relative !important;
+    background: #ffffff !important;
+    backdrop-filter: none !important;
+    inset: auto !important;
+    width: 100% !important;
+    height: auto !important;
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Optimize and securely position the print document to flow naturally on the page with safe balanced inline padding */
+  #billing-invoice-box, #printable-report-card {
+    position: relative !important;
+    display: block !important;
+    left: auto !important;
+    top: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 6mm !important;
+    margin: 0 auto !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    min-height: 0 !important;
+    page-break-after: auto !important;
+    box-sizing: border-box !important;
+  }
+
+  #consolidated-auditor-card {
+    page: landscape-sheet !important;
+    position: relative !important;
+    display: block !important;
+    left: auto !important;
+    top: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 6mm !important;
+    margin: 0 auto !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    min-height: 0 !important;
+    page-break-after: auto !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Ensure tables print properly and do not break lines weirdly */
+  table {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-collapse: collapse !important;
+    page-break-inside: auto !important;
+    table-layout: auto !important;
+  }
+
+  th, td {
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+    white-space: normal !important;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+    page-break-after: auto !important;
+  }
+
+  .print-invoice-page {
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+  .print-invoice-page:last-of-type {
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+
+  tfoot {
+    display: table-footer-group !important;
+  }
+
+  /* Force background colors to show in modern browsers during print PDF generation */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}

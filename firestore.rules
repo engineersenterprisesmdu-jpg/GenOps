@@ -1,0 +1,43 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function isValidUserBackup(data) {
+      return data.keys().hasAll(['userId', 'updatedAt', 'database'])
+        && data.keys().size() == 3
+        && data.userId is string
+        && data.userId.size() <= 128
+        && data.database is map;
+    }
+
+    match /users/{userId}/backups/{backupDocId} {
+      allow read, delete: if isOwner(userId) && isValidId(backupDocId);
+      allow create, update: if isOwner(userId) && isValidId(backupDocId) 
+        && isValidUserBackup(incoming())
+        && incoming().userId == request.auth.uid
+        && incoming().updatedAt == request.time;
+    }
+  }
+}
