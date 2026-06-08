@@ -58,6 +58,9 @@ export default function App() {
   // Keep track of active workspace tab
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   
+  // Detemine if app is running inside a secure iframe preview that restricts popups
+  const isInIframe = typeof window !== 'undefined' && window.self !== window.top;
+  
   // Track active month-year key: YYYY-MM
   const [selectedMonth, setSelectedMonth] = useState<string>('2026-04'); // default seed month
 
@@ -457,7 +460,7 @@ export default function App() {
                 </button>
               </div>
             ) : (
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 animate-fade-in" id="auth-sidebar-buttons">
                 <p className="text-[10px] text-slate-400 leading-tight font-sans">
                   Sign in with Google to synchronize your logs across any device!
                 </p>
@@ -469,6 +472,11 @@ export default function App() {
                   <LogIn className="h-3.5 w-3.5" />
                   Sign In with Google
                 </button>
+                {isInIframe && (
+                  <p className="text-[9px] text-amber-450 bg-amber-950/40 p-1.5 rounded leading-normal border border-amber-900/30 font-medium">
+                    ⚠️ Popups are blocked inside iframes. Please select <strong className="text-amber-300">"Open in New Tab"</strong> at the top right of your browser viewer to login smoothly!
+                  </p>
+                )}
               </div>
             )}
           </div>

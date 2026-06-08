@@ -3,9 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { AppDatabase, Genset, SiteLog } from '../types';
 import { formatCurrency, formatMinutesToTime } from '../utils/time';
+import { auth } from '../firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
 import { 
   Building2, 
   Settings, 
@@ -42,6 +44,15 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ db, onNavigate, selectedMonth, setSelectedMonth, onUpdateDb }: DashboardProps) {
+  const [currentUser, setCurrentUser] = useState<User | null>(auth.currentUser);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+    });
+    return () => unsubscribe();
+  }, []);
+
   // Available chronological options for ranges
   const chronologicalMonths = useMemo(() => {
     const months = new Set<string>();
@@ -357,14 +368,30 @@ export default function Dashboard({ db, onNavigate, selectedMonth, setSelectedMo
       
       {/* Header and Period Configuration Bar */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            <TrendingUp className="h-5.5 w-5.5 text-blue-600" />
-            Operations Overview Dashboard
-          </h1>
-          <p className="text-slate-500 text-xs mt-0.5">
-            Audit submission status, expected log entries, meter mismatch warnings, and billing collections.
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <div>
+            <h1 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+              <TrendingUp className="h-5.5 w-5.5 text-blue-600" />
+              Operations Overview Dashboard
+            </h1>
+            <p className="text-slate-500 text-xs mt-0.5">
+              Audit submission status, expected log entries, meter mismatch warnings, and billing collections.
+            </p>
+          </div>
+
+          {currentUser && (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-150 text-emerald-800 rounded-lg text-xs leading-none self-start sm:self-center" id="dashboard-active-operator-badge">
+              {currentUser.photoURL ? (
+                <img src={currentUser.photoURL} alt="Avatar" className="h-5.5 w-5.5 rounded-full border border-emerald-250 shrink-0" referrerPolicy="no-referrer" />
+              ) : (
+                <span className="p-1 px-1.5 bg-emerald-600 text-white font-extrabold text-[8px] uppercase tracking-wider rounded font-mono">OP</span>
+              )}
+              <div>
+                <span className="block text-[8px] font-black uppercase tracking-wider text-emerald-600 font-mono">Active Operator</span>
+                <span className="block text-[11.5px] font-extrabold text-slate-800 mt-0.5">{currentUser.displayName || currentUser.email}</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Dynamic Period Control Panel */}

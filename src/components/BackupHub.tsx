@@ -50,6 +50,9 @@ export default function BackupHub({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [importStatus, setImportStatus] = useState<{ type: 'idle' | 'success' | 'error'; message: string }>({ type: 'idle', message: '' });
   
+  // Determine if application is running in the sandboxed preview iframe
+  const isInIframe = typeof window !== 'undefined' && window.self !== window.top;
+  
   // Cloud sync states
   const [cloudStatus, setCloudStatus] = useState<{ type: 'idle' | 'loading' | 'success' | 'error'; message: string }>({ type: 'idle', message: '' });
   const [lastSyncDate, setLastSyncDate] = useState<string | null>(null);
@@ -338,14 +341,21 @@ export default function BackupHub({
               </div>
             ) : (
               onSignIn && (
-                <button
-                  type="button"
-                  onClick={onSignIn}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs rounded-lg shadow hover:shadow-md transition cursor-pointer"
-                >
-                  <LogIn className="h-4 w-4" />
-                  Connect Google Account
-                </button>
+                <div className="flex flex-col items-end gap-2 text-right" id="backup-hub-signin-container">
+                  <button
+                    type="button"
+                    onClick={onSignIn}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs rounded-lg shadow hover:shadow-md transition cursor-pointer"
+                  >
+                    <LogIn className="h-4 w-4" />
+                    Connect Google Account
+                  </button>
+                  {isInIframe && (
+                    <span className="text-[10px] text-amber-400 bg-amber-950/40 p-1.5 rounded max-w-[260px] leading-normal border border-amber-900/40 font-medium inline-block text-left">
+                      ⚠️ If sign-in fails/closes, please click <strong>"Open in New Tab"</strong> at the top right of the builder browser view to login smoothly!
+                    </span>
+                  )}
+                </div>
               )
             )}
           </div>
