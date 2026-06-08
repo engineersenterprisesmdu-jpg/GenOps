@@ -7,7 +7,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { AppDatabase } from '../types';
 import { User, GoogleAuthProvider } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db as firestoreDb } from '../firebase';
+import { db as firestoreDb, activeConfig } from '../firebase';
 import { handleFirestoreError, OperationType } from '../utils/firestoreError';
 import { 
   Download, 
@@ -22,7 +22,12 @@ import {
   Calendar,
   LogIn,
   LogOut,
-  Info
+  Info,
+  Sliders,
+  Key,
+  RefreshCw,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 interface BackupHubProps {
@@ -48,6 +53,61 @@ export default function BackupHub({
   // Cloud sync states
   const [cloudStatus, setCloudStatus] = useState<{ type: 'idle' | 'loading' | 'success' | 'error'; message: string }>({ type: 'idle', message: '' });
   const [lastSyncDate, setLastSyncDate] = useState<string | null>(null);
+
+  // Configuration Manager states
+  const [showConfigKeysForm, setShowConfigKeysForm] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [configFields, setConfigFields] = useState({
+    projectId: activeConfig.projectId || '',
+    apiKey: activeConfig.apiKey || '',
+    authDomain: activeConfig.authDomain || '',
+    storageBucket: activeConfig.storageBucket || '',
+    messagingSenderId: activeConfig.messagingSenderId || '',
+    appId: activeConfig.appId || '',
+    firestoreDatabaseId: activeConfig.firestoreDatabaseId || '',
+  });
+
+  const [configSavedStatus, setConfigSavedStatus] = useState<{ type: 'idle' | 'success' | 'reset-success' | 'error'; message: string }>({ type: 'idle', message: '' });
+
+  const handleSaveConfig = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!configFields.projectId || !configFields.apiKey) {
+      setConfigSavedStatus({
+        type: 'error',
+        message: 'Project ID and API Key are mandatory to configure a custom Firebase connection.'
+      });
+      return;
+    }
+
+    try {
+      localStorage.setItem('custom_firebase_config', JSON.stringify(configFields));
+      setConfigSavedStatus({
+        type: 'success',
+        message: 'Successfully saved custom Firebase configuration overrides! The application is reloading now to apply change...'
+      });
+      setTimeout(() => {
+        window.location.reload();
+      }, 1800);
+    } catch (err: any) {
+      setConfigSavedStatus({
+        type: 'error',
+        message: `Failed to write settings database: ${err.message}`
+      });
+    }
+  };
+
+  const handleResetConfig = () => {
+    if (confirm('Are you sure you want to discard your custom Firebase keys and reload using default app credentials?')) {
+      localStorage.removeItem('custom_firebase_config');
+      setConfigSavedStatus({
+        type: 'reset-success',
+        message: 'Discarded personal configuration. Purging credentials now... Reloading page...'
+      });
+      setTimeout(() => {
+        window.location.reload();
+      }, 1200);
+    }
+  };
 
   // Check last sync date automatically on load if user is logged in
   useEffect(() => {
@@ -534,6 +594,233 @@ export default function BackupHub({
             </p>
           </div>
         </div>
+
+      </div>
+
+      {/* Advanced Custom Firebase Connection Panel */}
+      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4 font-sans">
+        
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-150 pb-3">
+          <div className="flex items-start gap-2.5">
+            <span className="p-2 bg-slate-100 text-slate-755 rounded-lg shrink-0">
+              <Sliders className="h-5 w-5 text-indigo-650 font-bold" />
+            </span>
+            <div>
+              <h2 className="text-sm font-extrabold text-slate-900 uppercase tracking-wide flex items-center gap-1.5">
+                Firebase Connection Setup
+                {localStorage.getItem('custom_firebase_config') ? (
+                  <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-800 border border-indigo-200 text-[9px] font-black uppercase rounded-md tracking-wider animate-pulse">
+                    Custom Config Overrides Active
+                  </span>
+                ) : (
+                  <span className="px-1.5 py-0.5 bg-slate-50 text-slate-500 border border-slate-200 text-[9px] font-bold uppercase rounded-md tracking-wider">
+                    Default Project Active
+                  </span>
+                )}
+              </h2>
+              <p className="text-slate-500 text-[11px] mt-0.5 leading-normal">
+                Check details or configure the application to connect to custom databases for login and cloud synchronization.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowConfigKeysForm(!showConfigKeysForm)}
+            className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-750 font-bold text-xs rounded-lg transition shrink-0 cursor-pointer border border-slate-200 flex items-center gap-1.5"
+          >
+            <Key className="h-3.5 w-3.5 text-slate-500" />
+            {showConfigKeysForm ? 'Collapse Connection settings' : 'Configure Custom project keys'}
+          </button>
+        </div>
+
+        {/* Current Active Settings Summary Badge Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 bg-slate-50/70 p-3 rounded-xl border border-slate-150 text-xs">
+          <div>
+            <span className="text-[10px] text-slate-500 block uppercase tracking-wider font-extrabold">Active Project ID</span>
+            <span className="font-semibold text-slate-800 block mt-0.5 truncate font-mono">{activeConfig.projectId || 'None'}</span>
+          </div>
+          <div>
+            <span className="text-[10px] text-slate-500 block uppercase tracking-wider font-extrabold">Active API Key</span>
+            <span className="font-semibold text-slate-800 block mt-0.5 truncate font-mono">
+              {activeConfig.apiKey ? `${activeConfig.apiKey.substring(0, 8)}...` : 'None'}
+            </span>
+          </div>
+          <div>
+            <span className="text-[10px] text-slate-500 block uppercase tracking-wider font-extrabold">Auth Domain Host</span>
+            <span className="font-semibold text-slate-800 block mt-0.5 truncate font-mono">{activeConfig.authDomain || 'None'}</span>
+          </div>
+          <div>
+            <span className="text-[10px] text-slate-500 block uppercase tracking-wider font-extrabold">Firestore DB Instance</span>
+            <span className="font-semibold text-slate-800 block mt-0.5 truncate font-mono text-indigo-700 font-bold">
+              {activeConfig.firestoreDatabaseId || '(default Standard Database)'}
+            </span>
+          </div>
+        </div>
+
+        {configSavedStatus.type !== 'idle' && (
+          <div className={`p-3 rounded-lg border flex items-start gap-2.5 text-xs ${
+            configSavedStatus.type === 'success' || configSavedStatus.type === 'reset-success'
+              ? 'bg-emerald-50 border-emerald-150 text-emerald-800'
+              : 'bg-rose-50 border-rose-150 text-rose-800'
+          }`}>
+            <RefreshCw className={`h-4 w-4 shrink-0 mt-0.5 ${(configSavedStatus.type === 'success' || configSavedStatus.type === 'reset-success') ? 'animate-spin' : ''}`} />
+            <div>
+              <p className="font-extrabold uppercase text-[10px] tracking-wide">
+                {configSavedStatus.type === 'success' ? 'Settings Saved' : configSavedStatus.type === 'reset-success' ? 'Settings purged' : 'Validation Error'}
+              </p>
+              <p className="mt-0.5 text-[11px] opacity-95">{configSavedStatus.message}</p>
+            </div>
+          </div>
+        )}
+
+        {showConfigKeysForm && (
+          <form onSubmit={handleSaveConfig} className="space-y-4 border-t border-slate-150 pt-3 animate-fade-in">
+            
+            <div className="bg-blue-50/70 border border-blue-150 p-3 rounded-lg text-blue-850 text-xs flex gap-2.5">
+              <Info className="h-4.5 w-4.5 text-blue-600 shrink-0 mt-0.5" />
+              <div className="leading-relaxed">
+                <span className="font-bold">Database & Auth Hosting Portability:</span>
+                <span className="block mt-0.5 opacity-90">
+                  By default, the application is set up with your <strong>gen-log-book</strong> project. You can override these keys under your private browser profile by specifying custom credentials below. This is highly useful for standalone testing, private builds, or if you rotate your Firebase API credentials later.
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Project ID */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 block uppercase tracking-wide">
+                  Project ID <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={configFields.projectId}
+                  onChange={(e) => setConfigFields(prev => ({ ...prev, projectId: e.target.value.trim() }))}
+                  placeholder="e.g. gen-log-book"
+                  className="w-full text-xs px-3 py-2 border border-slate-250 rounded-lg text-slate-800 font-mono placeholder:text-slate-400 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500/25 outline-hidden"
+                />
+              </div>
+
+              {/* API Key */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 block uppercase tracking-wide flex justify-between">
+                  <span>API Key <span className="text-rose-500">*</span></span>
+                  <button 
+                    type="button" 
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    className="text-[10px] text-blue-600 hover:underline font-bold capitalize cursor-pointer font-sans"
+                  >
+                    {showApiKey ? 'Hide' : 'Show'}
+                  </button>
+                </label>
+                <input
+                  type={showApiKey ? 'text' : 'password'}
+                  required
+                  value={configFields.apiKey}
+                  onChange={(e) => setConfigFields(prev => ({ ...prev, apiKey: e.target.value.trim() }))}
+                  placeholder="AIzaSy..."
+                  className="w-full text-xs px-3 py-2 border border-slate-250 rounded-lg text-slate-800 font-mono placeholder:text-slate-400 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500/25 outline-hidden"
+                />
+              </div>
+
+              {/* Auth Domain */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 block uppercase tracking-wide mt-1">
+                  Auth Domain Host
+                </label>
+                <input
+                  type="text"
+                  value={configFields.authDomain}
+                  onChange={(e) => setConfigFields(prev => ({ ...prev, authDomain: e.target.value.trim() }))}
+                  placeholder="e.g. gen-log-book.firebaseapp.com"
+                  className="w-full text-xs px-3 py-2 border border-slate-250 rounded-lg text-slate-800 font-mono placeholder:text-slate-400 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500/25 outline-hidden"
+                />
+              </div>
+
+              {/* App ID */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 block uppercase tracking-wide mt-1">
+                  App ID (Web Application ID)
+                </label>
+                <input
+                  type="text"
+                  value={configFields.appId}
+                  onChange={(e) => setConfigFields(prev => ({ ...prev, appId: e.target.value.trim() }))}
+                  placeholder="e.g. 1:337575704424:web:3ba..."
+                  className="w-full text-xs px-3 py-2 border border-slate-250 rounded-lg text-slate-800 font-mono placeholder:text-slate-400 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500/25 outline-hidden"
+                />
+              </div>
+
+              {/* Storage Bucket */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 block uppercase tracking-wide mt-1">
+                  Storage Bucket
+                </label>
+                <input
+                  type="text"
+                  value={configFields.storageBucket}
+                  onChange={(e) => setConfigFields(prev => ({ ...prev, storageBucket: e.target.value.trim() }))}
+                  placeholder="e.g. gen-log-book.firebasestorage.app"
+                  className="w-full text-xs px-3 py-2 border border-slate-250 rounded-lg text-slate-800 font-mono placeholder:text-slate-400 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500/25 outline-hidden"
+                />
+              </div>
+
+              {/* Messaging Sender ID */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 block uppercase tracking-wide mt-1">
+                  Messaging Sender ID
+                </label>
+                <input
+                  type="text"
+                  value={configFields.messagingSenderId}
+                  onChange={(e) => setConfigFields(prev => ({ ...prev, messagingSenderId: e.target.value.trim() }))}
+                  placeholder="e.g. 337575704424"
+                  className="w-full text-xs px-3 py-2 border border-slate-250 rounded-lg text-slate-800 font-mono placeholder:text-slate-400 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500/25 outline-hidden"
+                />
+              </div>
+
+              {/* Custom Database ID */}
+              <div className="space-y-1 md:col-span-2">
+                <label className="text-xs font-bold text-slate-700 block uppercase tracking-wide mt-1">
+                  Firestore Database Name (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={configFields.firestoreDatabaseId}
+                  onChange={(e) => setConfigFields(prev => ({ ...prev, firestoreDatabaseId: e.target.value.trim() }))}
+                  placeholder="Leave empty for production default database instance (Recommended unless using Multiple Multi-Tenant DBs)"
+                  className="w-full text-xs px-3 py-2 border border-slate-250 rounded-lg text-slate-800 font-mono placeholder:text-slate-400 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500/25 outline-hidden"
+                />
+                <p className="text-[10px] text-slate-500 mt-1 leading-normal italic">
+                  Leave empty if you are using standard database. Enterprise multi-tenant Firestore instances may need a customized database identifier.
+                </p>
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex flex-col sm:flex-row items-center justify-end gap-3.5 border-t border-slate-150 pt-3.5">
+              {localStorage.getItem('custom_firebase_config') && (
+                <button
+                  type="button"
+                  onClick={handleResetConfig}
+                  className="w-full sm:w-auto px-4 py-2 bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700 font-bold text-xs rounded-lg transition shrink-0 cursor-pointer border border-rose-100 uppercase tracking-wider"
+                >
+                  Discard Custom Keys
+                </button>
+              )}
+              
+              <button
+                type="submit"
+                className="w-full sm:w-auto px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-lg transition shrink-0 cursor-pointer uppercase tracking-wider shadow-xs"
+              >
+                Save overrides & apply
+              </button>
+            </div>
+
+          </form>
+        )}
 
       </div>
 
