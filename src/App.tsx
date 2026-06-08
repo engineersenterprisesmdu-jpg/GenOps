@@ -83,6 +83,9 @@ export default function App() {
   // Ref to hold the remote string representation of the database to block cyclic writes
   const remoteDbStringRef = useRef<string>('');
 
+  // Ref to track if we have successfully loaded or initialized the cloud state first
+  const isCloudLoadedRef = useRef<boolean>(false);
+
   // Ref to keep the latest db state accessible in callbacks without stale closures
   const dbRef = useRef(db);
   useEffect(() => {
@@ -97,6 +100,7 @@ export default function App() {
       if (!user) {
         setSyncStatus('disconnected');
         setSyncErrorReason(null);
+        isCloudLoadedRef.current = false;
       }
     });
     return () => unsubscribe();
@@ -107,6 +111,7 @@ export default function App() {
     if (!currentUser) {
       remoteDbStringRef.current = '';
       setSyncStatus('disconnected');
+      isCloudLoadedRef.current = false;
       return;
     }
 
@@ -129,6 +134,7 @@ export default function App() {
         }
         setSyncStatus('synced');
         setSyncErrorReason(null);
+        isCloudLoadedRef.current = true;
       } else {
         // First-time sync: if Firestore lacks a backup, save the current local database state to initialize it
         const currentDb = dbRef.current;
@@ -143,6 +149,7 @@ export default function App() {
         }).then(() => {
           setSyncStatus('synced');
           setSyncErrorReason(null);
+          isCloudLoadedRef.current = true;
         }).catch(err => {
           console.error('Failed to initialize empty Firebase database:', err);
           setSyncStatus('error');
@@ -169,7 +176,7 @@ export default function App() {
     const dbString = JSON.stringify(db);
     localStorage.setItem(STORAGE_KEY, dbString);
 
-    if (currentUser) {
+    if (currentUser && isCloudLoadedRef.current) {
       // Only write to Firestore if the current state is different from the last remote version we tracked
       if (dbString !== remoteDbStringRef.current) {
         setSyncStatus('syncing');
