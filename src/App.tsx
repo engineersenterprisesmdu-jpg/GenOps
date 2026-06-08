@@ -75,6 +75,11 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState<{ code?: string; message?: string } | null>(null);
 
+  // User sign-in warning alert banner block for first-time / guest users to protect their data
+  const [dismissLoginWarning, setDismissLoginWarning] = useState(() => {
+    return localStorage.getItem('dismiss_google_login_warning') === 'true';
+  });
+
   // Firestore Database Real-time Synchronisation States
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error' | 'disconnected'>('disconnected');
   const [syncErrorReason, setSyncErrorReason] = useState<{ code?: string; message?: string } | null>(null);
@@ -560,9 +565,56 @@ export default function App() {
 
       </aside>
 
-      {/* Main active work layout (Hidden on native Print only if rendering printed sub-box) */}
+       {/* Main active work layout (Hidden on native Print only if rendering printed sub-box) */}
       <main className="flex-1 p-4 sm:p-8 max-w-7xl mx-auto w-full transition-all duration-300" style={{ minWidth: 0 }}>
         
+        {!currentUser && !dismissLoginWarning && (
+          <div className="mb-6 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-5 shadow-xs flex flex-col md:flex-row items-start gap-4 animate-fade-in print:hidden" id="google-login-warning-banner">
+            <div className="p-3 bg-amber-500/10 rounded-xl shrink-0 text-amber-700">
+              <AlertTriangle className="h-6 w-6" />
+            </div>
+            <div className="flex-1 space-y-1.5 min-w-0">
+              <h4 className="text-sm font-black text-amber-900 tracking-tight flex flex-wrap items-center gap-1.5 font-sans">
+                <span>Standalone Mode: Enable Secure Cloud Database Sync</span>
+                <span className="text-[9px] bg-amber-200/60 text-amber-850 px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider font-sans">Unsaved Changes Risk</span>
+              </h4>
+              <p className="text-xs text-amber-800 font-medium leading-relaxed font-sans">
+                You are currently running in local storage mode. Your fuel logs, generator readings, payments, and generated billing invoices are stored <strong className="text-amber-950 font-extrabold">only in your local browser storage</strong>. If you clear your browser cache, change browsers, or format your device, <strong className="text-rose-700 font-extrabold">all your data will be permanently lost</strong>.
+              </p>
+              <p className="text-xs text-slate-600 font-medium font-sans">
+                Log in with your Google account to back up and synchronize all records instantly to the secure cloud!
+              </p>
+              
+              {isInIframe && (
+                <div className="mt-2 text-xs text-amber-700 bg-amber-150/40 p-2.5 rounded-lg border border-amber-200/50 font-medium leading-relaxed font-sans">
+                  <span className="font-bold">⚠️ Notice for Preview Mode:</span> Popups are restricted inside this iframe viewer by third-party browser security policies. Please click the <strong className="text-amber-900 font-bold">"Open in New Tab"</strong> button at the top-right corner of your browser view before signing in.
+                </div>
+              )}
+            </div>
+            
+            <div className="flex flex-row md:flex-col gap-2 shrink-0 w-full md:w-auto pt-3 md:pt-0 border-t md:border-t-0 border-amber-200/60">
+              <button
+                type="button"
+                onClick={handleSignIn}
+                className="flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold text-xs rounded-lg shadow-sm cursor-pointer transition-all active:scale-[0.98] font-sans"
+              >
+                <LogIn className="h-4 w-4" />
+                Connect Google Account
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDismissLoginWarning(true);
+                  localStorage.setItem('dismiss_google_login_warning', 'true');
+                }}
+                className="flex-1 md:flex-initial px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 hover:border-slate-300 font-bold text-xs rounded-lg transition-all text-center cursor-pointer font-sans"
+              >
+                Continue Offline
+              </button>
+            </div>
+          </div>
+        )}
+
         {invoiceGensetId ? (
           <InvoicePrint
             db={db}
