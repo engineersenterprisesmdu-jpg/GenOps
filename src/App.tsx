@@ -34,7 +34,8 @@ import {
   Receipt,
   LogIn,
   LogOut,
-  Cloud
+  Cloud,
+  AlertTriangle
 } from 'lucide-react';
 
 const STORAGE_KEY = 'engineers_diesel_billing_db_v2';
@@ -72,6 +73,7 @@ export default function App() {
 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [authError, setAuthError] = useState<{ code?: string; message?: string } | null>(null);
 
   // Ref to hold the remote string representation of the database to block cyclic writes
   const remoteDbStringRef = useRef<string>('');
@@ -171,10 +173,15 @@ export default function App() {
 
   const handleSignIn = async () => {
     const provider = new GoogleAuthProvider();
+    setAuthError(null);
     try {
       await signInWithPopup(auth, provider);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to log in with Google:', err);
+      setAuthError({
+        code: err?.code || 'unknown',
+        message: err?.message || String(err)
+      });
     }
   };
 
@@ -581,6 +588,153 @@ export default function App() {
         )}
 
       </main>
+
+      {/* Google Auth Diagnostician & Troubleshooter Modal */}
+      {authError && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in" id="auth-diagnostics-modal">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-amber-500 to-orange-600 text-white p-6 flex items-start gap-4">
+              <div className="p-3 bg-white/20 rounded-xl shrink-0">
+                <AlertTriangle className="h-6 w-6 text-white" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-black tracking-tight">Google Sign-In Troubleshooter</h3>
+                <p className="text-amber-100 text-xs mt-1 font-medium">
+                  We identified an issue protecting your Google Authentication flow.
+                </p>
+              </div>
+              <button 
+                onClick={() => setAuthError(null)}
+                className="p-1 hover:bg-white/10 rounded-lg text-white/85 hover:text-white transition cursor-pointer"
+                title="Dismiss"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Content Area */}
+            <div className="p-6 overflow-y-auto space-y-6 text-slate-750 text-sm leading-relaxed">
+              
+              {/* Error Codes details */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 font-sans space-y-2">
+                <div className="flex justify-between items-center border-b border-slate-200/60 pb-2">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-slate-500 font-mono">Error Code</span>
+                  <span className="text-xs font-mono font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded border border-amber-200">
+                    {authError.code}
+                  </span>
+                </div>
+                <div className="pt-1.5">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-slate-500 font-mono block mb-1">Details</span>
+                  <p className="text-xs text-slate-650 font-mono bg-slate-900 text-slate-200 p-2.5 rounded-lg overflow-auto max-h-24 leading-normal">
+                    {authError.message}
+                  </p>
+                </div>
+              </div>
+
+              {/* Dynamic Solution logic based on error description */}
+              {authError.code === 'auth/unauthorized-domain' ? (
+                <div className="space-y-4 animate-fade-in">
+                  <div className="border-l-4 border-blue-500 pl-3">
+                    <h4 className="font-extrabold text-blue-900 text-sm">Why did this happen?</h4>
+                    <p className="text-xs text-slate-600 mt-1">
+                      Firebase secure login restricts Google single sign-on requests exclusively to domains you have explicitly greenlisted (whitelisted). Currently, your AI Studio preview web address is not added in your Firebase project.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h4 className="font-extrabold text-slate-940 text-xs uppercase tracking-wider text-slate-600">How to fix it (3 step process):</h4>
+                    <ol className="list-decimal pl-5 space-y-2 text-xs text-slate-700">
+                      <li>
+                        Go to your <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer" className="text-blue-600 font-bold hover:underline">Firebase Console</a> and open your project.
+                      </li>
+                      <li>
+                        Navigate to <strong>Authentication</strong> (left sidebar) ➔ <strong>Settings</strong> tab ➔ <strong>Authorized Domains</strong> section.
+                      </li>
+                      <li>
+                        Click <strong>Add domain</strong>, paste the following current domain, and click <strong>Add</strong>:
+                        <div className="bg-slate-100 border border-slate-300 p-2 rounded mt-1.5 flex items-center justify-between font-mono font-bold text-slate-900">
+                          <span>{window.location.host}</span>
+                          <button 
+                            type="button" 
+                            onClick={() => {
+                              navigator.clipboard.writeText(window.location.host);
+                              alert('Copied domain to clipboard!');
+                            }}
+                            className="px-2 py-1 bg-slate-200 hover:bg-slate-300 rounded text-[10px] cursor-pointer"
+                          >
+                            Copy Domain
+                          </button>
+                        </div>
+                      </li>
+                    </ol>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-150 p-3.5 rounded-xl text-xs text-blue-800 space-y-1">
+                    <p className="font-bold">💡 Pro-Tip for Preview environments:</p>
+                    <p className="leading-normal">
+                      Instead of adding individual temporary domains, you can add <strong>asia-east1.run.app</strong> (or simply <strong>run.app</strong>) in Firebase to automatically authorize all AI Studio preview urls instantly!
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4 animate-fade-in">
+                  <div className="border-l-4 border-amber-500 pl-3">
+                    <h4 className="font-extrabold text-amber-900 text-sm">Why did this happen?</h4>
+                    <p className="text-xs text-slate-600 mt-1">
+                      This is generally caused either by browser popup-blocking policies (especially when running inside iframes) or because the domain has not been registered inside your Firebase project's <strong>Authorized Domains</strong>.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3 pt-2">
+                    <h4 className="font-extrabold text-slate-940 text-xs uppercase tracking-wider text-slate-600">Quick troubleshooting checklist:</h4>
+                    <ul className="space-y-2.5 text-xs text-slate-700">
+                      <li className="flex items-start gap-2">
+                        <span className="text-blue-600 font-bold">1.</span>
+                        <div>
+                          <strong>Check Authorized Domains (Firebase Console):</strong> Ensure that <span className="font-mono bg-slate-100 px-1 py-0.5 rounded text-blue-700 font-bold">{window.location.host}</span> is added under <strong>Firebase Console ➔ Authentication ➔ Settings ➔ Authorized Domains</strong>.
+                        </div>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-blue-600 font-bold">2.</span>
+                        <div>
+                          <strong>Exit the iframe / Slideout Viewer:</strong> Popups inside iframes are strictly blocked by browsers. Click the <strong>"Open in New Tab"</strong> button at the top right of this browser pane and try signing in there.
+                        </div>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-blue-600 font-bold">3.</span>
+                        <div>
+                          <strong>Disable Ad Blockers / Brave Shield:</strong> Third-party blockers might block the authentication callback scripts running inside Firebase popups. Try turning them off temporarily for this tab.
+                        </div>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              )}
+
+            </div>
+
+            {/* Footer buttons */}
+            <div className="bg-slate-50 p-4 border-t border-slate-200 flex items-center justify-between">
+              <a 
+                href="https://console.firebase.google.com/" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-705 text-xs font-bold rounded-lg transition"
+              >
+                Go to Firebase Console
+              </a>
+              <button
+                type="button"
+                onClick={() => setAuthError(null)}
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black rounded-lg shadow cursor-pointer transition"
+              >
+                Dismiss & Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
