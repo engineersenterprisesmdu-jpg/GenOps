@@ -3,7 +3,7 @@
   "appId": "1:337575704424:web:3ba662115c261f8510c8dd",
   "apiKey": "AIzaSyCFN6LWN3GzTZTdtmUychEsgIXFMKhgl2U",
   "authDomain": "gen-log-book.firebaseapp.com",
-  "firestoreDatabaseId": "",
+  "firestoreDatabaseId": "(default)",
   "storageBucket": "gen-log-book.firebasestorage.app",
   "messagingSenderId": "337575704424",
   "measurementId": ""

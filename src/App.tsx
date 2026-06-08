@@ -75,6 +75,11 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState<{ code?: string; message?: string } | null>(null);
 
+  // Firestore Database Real-time Synchronisation States
+  const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error' | 'disconnected'>('disconnected');
+  const [syncErrorReason, setSyncErrorReason] = useState<{ code?: string; message?: string } | null>(null);
+  const [showSyncErrorDiagnosis, setShowSyncErrorDiagnosis] = useState(false);
+
   // Ref to hold the remote string representation of the database to block cyclic writes
   const remoteDbStringRef = useRef<string>('');
 
@@ -89,6 +94,10 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
       setAuthLoading(false);
+      if (!user) {
+        setSyncStatus('disconnected');
+        setSyncErrorReason(null);
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -97,9 +106,11 @@ export default function App() {
   useEffect(() => {
     if (!currentUser) {
       remoteDbStringRef.current = '';
+      setSyncStatus('disconnected');
       return;
     }
 
+    setSyncStatus('syncing');
     const docRef = doc(firestoreDb, 'users', currentUser.uid, 'backups', 'active');
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
@@ -116,22 +127,38 @@ export default function App() {
             return currentLocalDb;
           });
         }
+        setSyncStatus('synced');
+        setSyncErrorReason(null);
       } else {
         // First-time sync: if Firestore lacks a backup, save the current local database state to initialize it
         const currentDb = dbRef.current;
         const dbString = JSON.stringify(currentDb);
         remoteDbStringRef.current = dbString;
         
+        setSyncStatus('syncing');
         setDoc(docRef, {
           userId: currentUser.uid,
           updatedAt: serverTimestamp(),
           database: currentDb
+        }).then(() => {
+          setSyncStatus('synced');
+          setSyncErrorReason(null);
         }).catch(err => {
           console.error('Failed to initialize empty Firebase database:', err);
+          setSyncStatus('error');
+          setSyncErrorReason({
+            code: err?.code || 'unknown',
+            message: err?.message || String(err)
+          });
         });
       }
     }, (err) => {
       console.warn('Firebase realtime subscription sync error (offline or permissions):', err);
+      setSyncStatus('error');
+      setSyncErrorReason({
+        code: err?.code || 'permission-denied',
+        message: err?.message || String(err)
+      });
     });
 
     return () => unsubscribe();
@@ -145,14 +172,23 @@ export default function App() {
     if (currentUser) {
       // Only write to Firestore if the current state is different from the last remote version we tracked
       if (dbString !== remoteDbStringRef.current) {
+        setSyncStatus('syncing');
         remoteDbStringRef.current = dbString;
         const docRef = doc(firestoreDb, 'users', currentUser.uid, 'backups', 'active');
         setDoc(docRef, {
           userId: currentUser.uid,
           updatedAt: serverTimestamp(),
           database: db
+        }).then(() => {
+          setSyncStatus('synced');
+          setSyncErrorReason(null);
         }).catch(err => {
           console.error('Failed to sync state to Cloud Firestore:', err);
+          setSyncStatus('error');
+          setSyncErrorReason({
+            code: err?.code || 'unknown',
+            message: err?.message || String(err)
+          });
         });
       }
     }
@@ -428,12 +464,28 @@ export default function App() {
           <div className="bg-slate-950/40 p-2.5 rounded-lg border border-slate-800 mb-3 text-left">
             <p className="text-[9px] text-slate-500 uppercase font-extrabold tracking-wider mb-1.5 flex items-center justify-between">
               <span>Cloud Sync status</span>
-              {currentUser ? (
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
-              ) : (
-                <span className="h-1.5 w-1.5 rounded-full bg-slate-600 inline-block" />
-              )}
+              <span>
+                {syncStatus === 'synced' && <span className="text-[10px] font-bold text-emerald-400">Synced ✓</span>}
+                {syncStatus === 'syncing' && <span className="text-[10px] font-bold text-sky-400 animate-pulse">Syncing...</span>}
+                {syncStatus === 'error' && <span className="text-[10px] font-bold text-rose-400">Sync Error!</span>}
+                {syncStatus === 'disconnected' && <span className="text-[10px] font-bold text-slate-500">Local Only</span>}
+              </span>
             </p>
+            {syncStatus === 'error' && (
+              <button
+                type="button"
+                onClick={() => setShowSyncErrorDiagnosis(true)}
+                className="w-full mb-2 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 p-2 rounded text-left text-rose-200 cursor-pointer text-[10px] transition font-bold leading-snug animate-pulse"
+              >
+                ⚠️ Firestore Sync Blocked
+                <span className="block text-[8px] text-rose-300 font-medium mt-0.5 font-mono truncate">
+                  Error: {syncErrorReason?.code || 'permission-denied'}
+                </span>
+                <span className="block text-[8px] text-rose-450 hover:text-rose-250 underline mt-1 text-right">
+                  Tap to resolve ➔
+                </span>
+              </button>
+            )}
             {authLoading ? (
               <p className="text-[11px] text-slate-500">Connecting...</p>
             ) : currentUser ? (
@@ -730,6 +782,175 @@ export default function App() {
                 className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black rounded-lg shadow cursor-pointer transition"
               >
                 Dismiss & Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cloud Firestore Rules Sync troubleshooter modal */}
+      {showSyncErrorDiagnosis && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in" id="firestore-sync-diagnostics-modal">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-indigo-600 to-blue-700 text-white p-6 flex items-start gap-4">
+              <div className="p-3 bg-white/20 rounded-xl shrink-0">
+                <Database className="h-6 w-6 text-white" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-black tracking-tight">Cloud Database Sync Troubleshooter</h3>
+                <p className="text-indigo-100 text-xs mt-1 font-medium">
+                  We detected that your transactions are failing to save in the cloud. Let's fix this in 2 minutes!
+                </p>
+              </div>
+              <button 
+                onClick={() => setShowSyncErrorDiagnosis(false)}
+                className="p-1 hover:bg-white/10 rounded-lg text-white/85 hover:text-white transition cursor-pointer"
+                title="Dismiss"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Content Area */}
+            <div className="p-6 overflow-y-auto space-y-6 text-slate-750 text-sm leading-relaxed">
+              
+              {/* Error Details */}
+              <div className="bg-rose-50 border border-rose-150 rounded-xl p-4 font-sans space-y-2">
+                <div className="flex justify-between items-center border-b border-rose-200/60 pb-2">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-rose-700 font-mono">Error Code</span>
+                  <span className="text-xs font-mono font-bold bg-rose-100 text-rose-800 px-2 py-0.5 rounded border border-rose-200">
+                    {syncErrorReason?.code || 'permission-denied'}
+                  </span>
+                </div>
+                <div className="pt-1.5">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-rose-700 font-mono block mb-1">Error Message</span>
+                  <p className="text-xs text-rose-900 font-mono bg-rose-950 text-rose-100 p-2.5 rounded-lg overflow-auto max-h-24 leading-normal">
+                    {syncErrorReason?.message || 'Missing or insufficient permissions. This occurs when the Firestore database rules block read or write operations.'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Main troubleshooting instruction */}
+              <div className="space-y-4">
+                <div className="border-l-4 border-amber-500 pl-3">
+                  <h4 className="font-extrabold text-amber-900 text-sm">Why did this happen?</h4>
+                  <p className="text-xs text-slate-600 mt-1 leading-normal">
+                    You have successfully created your Firestore database in the Firebase Console! However, by default, Firebase initializes standard databases in <strong>"Locked Mode"</strong>, which completely blocks all external reads and writes. To allow your authenticated account to backup and restore billing records, you must publish the secure security rules below.
+                  </p>
+                </div>
+
+                <div className="space-y-3 pt-2">
+                  <h4 className="font-extrabold text-slate-900 text-xs uppercase tracking-wider text-slate-500">Step-by-step Solution:</h4>
+                  <ol className="list-decimal pl-5 space-y-3.5 text-xs text-slate-700">
+                    <li>
+                      Open your <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer" className="text-blue-600 font-bold hover:underline">Firebase Console</a>, and navigate into your project.
+                    </li>
+                    <li>
+                      In the left-hand menu, select <strong>Firestore Database</strong>.
+                    </li>
+                    <li>
+                      Click on the <strong>Rules</strong> tab at the top of the Firestore screen.
+                    </li>
+                    <li>
+                      Copy the security rules below, paste them into the code editor on that screen, and click <strong>Publish</strong>:
+                      
+                      <div className="mt-2.5 border border-slate-300 rounded-lg overflow-hidden bg-slate-900 text-slate-200">
+                        <div className="bg-slate-800 px-3 py-1.5 border-b border-slate-700 flex justify-between items-center text-[10px] font-mono text-slate-400">
+                          <span>firestore.rules</span>
+                          <button 
+                            type="button" 
+                            onClick={() => {
+                              const rules = `rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\\\-]+$');
+    }
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    match /users/{userId}/backups/{backupDocId} {
+      allow read, delete: if isOwner(userId) && isValidId(backupDocId);
+      allow create, update: if isOwner(userId) && isValidId(backupDocId) 
+        && request.resource.data.keys().hasAll(['userId', 'updatedAt', 'database'])
+        && request.resource.data.keys().size() == 3
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.updatedAt == request.time;
+    }
+  }
+}`;
+                              navigator.clipboard.writeText(rules);
+                              alert('Secure Security Rules copied to clipboard!');
+                            }}
+                            className="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded selection:bg-none cursor-pointer transition text-slate-200"
+                          >
+                            Copy Rules Block
+                          </button>
+                        </div>
+                        <pre className="p-3 text-[10.5px] font-mono text-slate-300 overflow-auto max-h-56 select-all scrollbar-thin text-left leading-normal">{`rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\\\-]+$');
+    }
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    match /users/{userId}/backups/{backupDocId} {
+      allow read, delete: if isOwner(userId) && isValidId(backupDocId);
+      allow create, update: if isOwner(userId) && isValidId(backupDocId) 
+        && request.resource.data.keys().hasAll(['userId', 'updatedAt', 'database'])
+        && request.resource.data.keys().size() == 3
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.updatedAt == request.time;
+    }
+  }
+}`}</pre>
+                      </div>
+                    </li>
+                  </ol>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Footer */}
+            <div className="bg-slate-50 p-4 border-t border-slate-200 flex items-center justify-between">
+              <a 
+                href="https://console.firebase.google.com/" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-705 text-xs font-bold rounded-lg transition"
+              >
+                Go to Firebase Console
+              </a>
+              <button
+                type="button"
+                onClick={() => setShowSyncErrorDiagnosis(false)}
+                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-lg shadow cursor-pointer transition"
+              >
+                Dismiss & Close
               </button>
             </div>
           </div>
