@@ -40,8 +40,12 @@ const getActiveConfig = () => {
 export const activeConfig = getActiveConfig();
 
 const app = initializeApp(activeConfig);
-export const db = activeConfig.firestoreDatabaseId 
-  ? getFirestore(app, activeConfig.firestoreDatabaseId)
+const dbId = (activeConfig.firestoreDatabaseId && activeConfig.firestoreDatabaseId !== '(default)')
+  ? activeConfig.firestoreDatabaseId
+  : undefined;
+
+export const db = dbId 
+  ? getFirestore(app, dbId)
   : getFirestore(app);
 export const auth = getAuth(app);
 

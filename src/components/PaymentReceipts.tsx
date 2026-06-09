@@ -726,7 +726,7 @@ export default function PaymentReceipts({ db, onUpdateDb, selectedMonth, setSele
             @media print {
               @page {
                 size: A4 landscape !important;
-                margin: 8mm 10mm 8mm 10mm !important;
+                margin: 0 !important;
               }
             }
           `}} />

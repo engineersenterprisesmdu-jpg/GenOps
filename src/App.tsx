@@ -221,6 +221,9 @@ export default function App() {
 
   const handleSignIn = async () => {
     const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({
+      prompt: 'select_account'
+    });
     setAuthError(null);
     try {
       await signInWithPopup(auth, provider);
@@ -255,11 +258,11 @@ export default function App() {
         @media print {
           @page {
             size: A4 portrait;
-            margin: 10mm 12mm 10mm 12mm !important;
+            margin: 0 !important;
           }
           @page landscape-sheet {
             size: A4 landscape !important;
-            margin: 8mm 10mm 8mm 10mm !important;
+            margin: 0 !important;
           }
           body, html, #root, #applet-container, main {
             background: white !important;
@@ -302,7 +305,7 @@ export default function App() {
             height: auto !important;
             border: none !important;
             box-shadow: none !important;
-            padding: 6mm !important;
+            padding: 12mm 15mm !important;
             margin: 0 auto !important;
             background: white !important;
             color: black !important;
@@ -320,7 +323,7 @@ export default function App() {
             height: auto !important;
             border: none !important;
             box-shadow: none !important;
-            padding: 6mm !important;
+            padding: 12mm 15mm !important;
             margin: 0 auto !important;
             background: white !important;
             color: black !important;
