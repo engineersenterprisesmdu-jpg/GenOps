@@ -65,6 +65,15 @@ export default function App() {
   // Track active month-year key: YYYY-MM
   const [selectedMonth, setSelectedMonth] = useState<string>('2026-04'); // default seed month
 
+  // Track deep linked genset ID from Dashboard for entry coordination
+  const [activeGensetId, setActiveGensetId] = useState<string>('');
+
+  const handleEnterLogs = (gensetId: string, monthKey: string) => {
+    setSelectedMonth(monthKey);
+    setActiveGensetId(gensetId);
+    handleNavigate('logs');
+  };
+
   // For print view: when invoiceGensetId is set, show printable invoice screen
   const [invoiceGensetId, setInvoiceGensetId] = useState<string | null>(null);
 
@@ -636,6 +645,7 @@ export default function App() {
                     selectedMonth={selectedMonth}
                     setSelectedMonth={setSelectedMonth}
                     onUpdateDb={handleUpdateDb}
+                    onEnterLogs={handleEnterLogs}
                   />
                 );
               case 'logs':
@@ -644,6 +654,8 @@ export default function App() {
                     db={db}
                     onUpdateDb={handleUpdateDb}
                     selectedMonth={selectedMonth}
+                    activeGensetId={activeGensetId}
+                    setActiveGensetId={setActiveGensetId}
                   />
                 );
               case 'billing':

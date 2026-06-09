@@ -61,9 +61,11 @@ interface LogBookProps {
   db: AppDatabase;
   onUpdateDb: (updater: (prev: AppDatabase) => AppDatabase) => void;
   selectedMonth: string;
+  activeGensetId?: string;
+  setActiveGensetId?: (id: string) => void;
 }
 
-export default function LogBook({ db, onUpdateDb, selectedMonth }: LogBookProps) {
+export default function LogBook({ db, onUpdateDb, selectedMonth, activeGensetId, setActiveGensetId }: LogBookProps) {
   // Main modes: 'entry' (for Data Entry) or 'view' (for viewing logs)
   const [currentMode, setCurrentMode] = useState<'entry' | 'view'>('entry');
 
@@ -72,6 +74,26 @@ export default function LogBook({ db, onUpdateDb, selectedMonth }: LogBookProps)
   const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [selectedMonthKey, setSelectedMonthKey] = useState<string>(selectedMonth);
   const [selectedGensetId, setSelectedGensetId] = useState<string>('');
+
+  // Sync deep linked selection from Dashboard
+  useEffect(() => {
+    if (activeGensetId) {
+      const g = db.gensets.find(item => item.id === activeGensetId);
+      if (g) {
+        const c = db.clients.find(cli => cli.id === g.clientId);
+        if (c) {
+          if (c.zone) {
+            setSelectedDo(c.zone);
+          }
+          setSelectedClientId(c.id);
+        }
+        setSelectedGensetId(activeGensetId);
+        if (setActiveGensetId) {
+          setActiveGensetId('');
+        }
+      }
+    }
+  }, [activeGensetId, db.gensets, db.clients, setActiveGensetId]);
 
   // Auto-fill states for timings entering
   const [newStart, setNewStart] = useState<string>('00:00');

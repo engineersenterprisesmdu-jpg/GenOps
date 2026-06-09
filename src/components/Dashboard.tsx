@@ -41,9 +41,10 @@ interface DashboardProps {
   selectedMonth: string;
   setSelectedMonth: (month: string) => void;
   onUpdateDb: (updater: (prev: AppDatabase) => AppDatabase) => void;
+  onEnterLogs?: (gensetId: string, monthKey: string) => void;
 }
 
-export default function Dashboard({ db, onNavigate, selectedMonth, setSelectedMonth, onUpdateDb }: DashboardProps) {
+export default function Dashboard({ db, onNavigate, selectedMonth, setSelectedMonth, onUpdateDb, onEnterLogs }: DashboardProps) {
   const [currentUser, setCurrentUser] = useState<User | null>(auth.currentUser);
 
   useEffect(() => {
@@ -704,7 +705,11 @@ export default function Dashboard({ db, onNavigate, selectedMonth, setSelectedMo
                               onClick={() => {
                                 // Jump to log book for this specific month and genset site!
                                 setSelectedMonth(item.monthKey);
-                                onNavigate('logs');
+                                if (onEnterLogs) {
+                                  onEnterLogs(item.genset.id, item.monthKey);
+                                } else {
+                                  onNavigate('logs');
+                                }
                               }}
                               className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-105 border border-blue-200 hover:border-blue-300 font-bold transition duration-150 cursor-pointer"
                               title="Go straight to entry logs for this month"
