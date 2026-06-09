@@ -494,7 +494,11 @@ export default function Reports({ db, selectedMonth, setSelectedMonth }: Reports
                   Audit & Compliance Verification Indicator:
                 </p>
                 <p className="text-slate-600 mt-0.5">
-                  The accumulated clock sheet duration matches the physical start/ending meter difference. 
+                  {Math.abs(clockMins - meterDiffMins) < 1.0 ? (
+                    <span>The accumulated clock sheet duration matches the physical start/ending meter difference.</span>
+                  ) : (
+                    <span>The accumulated clock sheet duration does not match the physical start/ending meter difference.</span>
+                  )}{" "}
                   Comparing <strong>Clock Total: {formatMinutesToTime(clockMins)} Hrs</strong> against <strong>Generator Meter Total: {formatMinutesToTime(meterDiffMins)} Hrs</strong>.
                 </p>
                 <div className="mt-1.5 flex items-center gap-1.5">

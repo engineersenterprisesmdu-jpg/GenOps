@@ -413,9 +413,14 @@ function InvoicePage({ db, gensetId, selectedMonth, useLetterhead, includeSeal, 
               <img referrerPolicy="no-referrer" src={db.company.signatureUrl} alt="Authorized Sign" className="h-16 object-contain" />
             </div>
           ) : (
-            <div className="h-16 flex items-center justify-center p-2 border border-dashed border-slate-150 rounded bg-slate-50/50 m-2 text-[10px] text-slate-400 italic print:border-none print:bg-transparent">
-              <span className="print:hidden">[ Authorized Signature Box ]</span>
-            </div>
+            <>
+              {/* Box for on-screen guidance */}
+              <div className="h-16 flex items-center justify-center p-2 border border-dashed border-slate-150 rounded bg-slate-50/50 m-2 text-[10px] text-slate-400 italic print:hidden">
+                <span>[ Authorized Signature Box ]</span>
+              </div>
+              {/* Completely clean empty space for physical manual sign on print */}
+              <div className="hidden print:block h-16"></div>
+            </>
           )}
 
           <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-sans">
