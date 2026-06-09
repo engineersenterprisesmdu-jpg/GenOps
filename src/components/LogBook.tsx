@@ -3,7 +3,31 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+
+// Helper to format YYYY-MM-DD input date to robust DD.MM.YYYY format
+function formatDateDMY(dateStr: string): string {
+  if (!dateStr) return 'N/A';
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    const yyyy = parts[0];
+    const mm = parts[1];
+    const dd = parts[2];
+    return `${dd}.${mm}.${yyyy}`;
+  }
+  try {
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      return `${dd}.${mm}.${yyyy}`;
+    }
+  } catch (err) {
+    // Ignore error
+  }
+  return dateStr;
+}
 import { AppDatabase, SiteLog, LogEntry, Genset } from '../types';
 import { 
   parseMeterToMinutes, 
@@ -57,6 +81,8 @@ export default function LogBook({ db, onUpdateDb, selectedMonth }: LogBookProps)
   const [newEntryDate, setNewEntryDate] = useState<string>(() => {
     return `${selectedMonthKey}-01`;
   });
+
+  const dateInputRef = useRef<HTMLInputElement>(null);
 
   // Meter Format Converter widget helper state
   const [convertInput, setConvertInput] = useState('');
@@ -277,6 +303,11 @@ export default function LogBook({ db, onUpdateDb, selectedMonth }: LogBookProps)
     // Reset timings for fast sequential logging
     setNewStart('00:00');
     setNewEnd('00:00');
+
+    // Auto focus back on date selection column for rapid data entry sequence
+    setTimeout(() => {
+      dateInputRef.current?.focus();
+    }, 50);
   };
 
   // Remove timing entry
@@ -647,7 +678,7 @@ export default function LogBook({ db, onUpdateDb, selectedMonth }: LogBookProps)
                           </tr>
                         ) : (
                           currentSiteLog.entries.map((entry, index) => {
-                            const entryLabelDate = entry.date ? new Date(entry.date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A';
+                            const entryLabelDate = entry.date ? formatDateDMY(entry.date) : 'N/A';
                             return (
                               <tr key={entry.id} className="hover:bg-slate-50/50 transition">
                                 <td className="py-2.5 px-3 text-center font-sans text-slate-400 font-bold">{index + 1}</td>
@@ -700,6 +731,7 @@ export default function LogBook({ db, onUpdateDb, selectedMonth }: LogBookProps)
                             Running Date
                           </label>
                           <input
+                            ref={dateInputRef}
                             type="date"
                             value={newEntryDate}
                             min={`${selectedMonthKey}-01`}
@@ -739,7 +771,7 @@ export default function LogBook({ db, onUpdateDb, selectedMonth }: LogBookProps)
                           className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2 px-3.5 rounded-lg flex items-center justify-center gap-1 transition-all h-8.5 w-full cursor-pointer uppercase tracking-wider text-center"
                         >
                           <Plus className="h-4 w-4" />
-                          Append Log Row
+                          ADD
                         </button>
 
                       </div>
@@ -864,7 +896,7 @@ export default function LogBook({ db, onUpdateDb, selectedMonth }: LogBookProps)
                           </tr>
                         ) : (
                           currentSiteLog.entries.map((entry, idx) => {
-                            const entryLabelDate = entry.date ? new Date(entry.date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A';
+                            const entryLabelDate = entry.date ? formatDateDMY(entry.date) : 'N/A';
                             return (
                               <tr key={entry.id} className="hover:bg-slate-50/40">
                                 <td className="py-2 px-3 text-center text-slate-400 font-sans">{idx + 1}</td>
