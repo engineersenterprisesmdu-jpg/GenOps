@@ -69,11 +69,33 @@ export default function LogBook({ db, onUpdateDb, selectedMonth, activeGensetId,
   // Main modes: 'entry' (for Data Entry) or 'view' (for viewing logs)
   const [currentMode, setCurrentMode] = useState<'entry' | 'view'>('entry');
 
+  // Pre-calculate initial selection values from deep-link prop, if present
+  const initialSelection = useMemo(() => {
+    if (activeGensetId) {
+      const g = db.gensets.find(item => item.id === activeGensetId);
+      if (g) {
+        const c = db.clients.find(cli => cli.id === g.clientId);
+        return {
+          zone: c?.zone || '',
+          clientId: g.clientId,
+          gensetId: activeGensetId
+        };
+      }
+    }
+    return null;
+  }, [activeGensetId, db.gensets, db.clients]);
+
   // Unified selections for guided workflow
-  const [selectedDo, setSelectedDo] = useState<string>('');
-  const [selectedClientId, setSelectedClientId] = useState<string>('');
+  const [selectedDo, setSelectedDo] = useState<string>(() => {
+    return initialSelection?.zone || '';
+  });
+  const [selectedClientId, setSelectedClientId] = useState<string>(() => {
+    return initialSelection?.clientId || '';
+  });
   const [selectedMonthKey, setSelectedMonthKey] = useState<string>(selectedMonth);
-  const [selectedGensetId, setSelectedGensetId] = useState<string>('');
+  const [selectedGensetId, setSelectedGensetId] = useState<string>(() => {
+    return initialSelection?.gensetId || '';
+  });
 
   // Sync deep linked selection from Dashboard
   useEffect(() => {
