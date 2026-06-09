@@ -32,9 +32,9 @@ service cloud.firestore {
         && data.database is map;
     }
 
-    match /users/{userId}/backups/{backupDocId} {
-      allow read, delete: if isOwner(userId) && isValidId(backupDocId);
-      allow create, update: if isOwner(userId) && isValidId(backupDocId) 
+    match /backups/{backupDocId} {
+      allow read, delete: if isSignedIn() && isValidId(backupDocId);
+      allow create, update: if isSignedIn() && isValidId(backupDocId) 
         && isValidUserBackup(incoming())
         && incoming().userId == request.auth.uid
         && incoming().updatedAt == request.time;

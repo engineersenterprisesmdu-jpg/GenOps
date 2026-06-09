@@ -23,9 +23,9 @@
     }
   },
   "firestore": {
-    "/users/{userId}/backups/active": {
+    "/backups/{backupDocId}": {
       "schema": "UserBackup",
-      "description": "Active backup document containing the complete AppDatabase JSON payload for the user"
+      "description": "Shared active backup document containing the complete AppDatabase JSON payload for all authenticated team accounts"
     }
   }
 }

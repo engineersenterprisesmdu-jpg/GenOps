@@ -121,7 +121,7 @@ export default function App() {
     }
 
     setSyncStatus('syncing');
-    const docRef = doc(firestoreDb, 'users', currentUser.uid, 'backups', 'active');
+    const docRef = doc(firestoreDb, 'backups', 'active');
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
         const remoteData = docSnap.data();
@@ -186,7 +186,7 @@ export default function App() {
       if (dbString !== remoteDbStringRef.current) {
         setSyncStatus('syncing');
         remoteDbStringRef.current = dbString;
-        const docRef = doc(firestoreDb, 'users', currentUser.uid, 'backups', 'active');
+        const docRef = doc(firestoreDb, 'backups', 'active');
         setDoc(docRef, {
           userId: currentUser.uid,
           updatedAt: serverTimestamp(),
@@ -934,16 +934,19 @@ service cloud.firestore {
     function isSignedIn() {
       return request.auth != null;
     }
-    
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
+
+    function isValidUserBackup(data) {
+      return data.keys().hasAll(['userId', 'updatedAt', 'database'])
+        && data.keys().size() == 3
+        && data.userId is string
+        && data.userId.size() <= 128
+        && data.database is map;
     }
 
-    match /users/{userId}/backups/{backupDocId} {
-      allow read, delete: if isOwner(userId) && isValidId(backupDocId);
-      allow create, update: if isOwner(userId) && isValidId(backupDocId) 
-        && request.resource.data.keys().hasAll(['userId', 'updatedAt', 'database'])
-        && request.resource.data.keys().size() == 3
+    match /backups/{backupDocId} {
+      allow read, delete: if isSignedIn() && isValidId(backupDocId);
+      allow create, update: if isSignedIn() && isValidId(backupDocId) 
+        && isValidUserBackup(request.resource.data)
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.updatedAt == request.time;
     }
@@ -971,16 +974,19 @@ service cloud.firestore {
     function isSignedIn() {
       return request.auth != null;
     }
-    
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
+
+    function isValidUserBackup(data) {
+      return data.keys().hasAll(['userId', 'updatedAt', 'database'])
+        && data.keys().size() == 3
+        && data.userId is string
+        && data.userId.size() <= 128
+        && data.database is map;
     }
 
-    match /users/{userId}/backups/{backupDocId} {
-      allow read, delete: if isOwner(userId) && isValidId(backupDocId);
-      allow create, update: if isOwner(userId) && isValidId(backupDocId) 
-        && request.resource.data.keys().hasAll(['userId', 'updatedAt', 'database'])
-        && request.resource.data.keys().size() == 3
+    match /backups/{backupDocId} {
+      allow read, delete: if isSignedIn() && isValidId(backupDocId);
+      allow create, update: if isSignedIn() && isValidId(backupDocId) 
+        && isValidUserBackup(request.resource.data)
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.updatedAt == request.time;
     }

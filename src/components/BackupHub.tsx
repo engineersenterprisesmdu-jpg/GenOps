@@ -117,7 +117,7 @@ export default function BackupHub({
     const fetchSyncStatus = async () => {
       if (!currentUser) return;
       try {
-        const docRef = doc(firestoreDb, 'users', currentUser.uid, 'backups', 'active');
+        const docRef = doc(firestoreDb, 'backups', 'active');
         const snap = await getDoc(docRef);
         if (snap.exists()) {
           const payload = snap.data();
@@ -138,7 +138,7 @@ export default function BackupHub({
     if (!currentUser) return;
     setCloudStatus({ type: 'loading', message: 'Syncing your database records securely to Cloud Firestore...' });
     
-    const docRef = doc(firestoreDb, 'users', currentUser.uid, 'backups', 'active');
+    const docRef = doc(firestoreDb, 'backups', 'active');
     try {
       await setDoc(docRef, {
         userId: currentUser.uid,
@@ -156,7 +156,7 @@ export default function BackupHub({
         message: `Cloud sync failed. ${err.message}`
       });
       try {
-        handleFirestoreError(err, OperationType.WRITE, `users/${currentUser.uid}/backups/active`);
+        handleFirestoreError(err, OperationType.WRITE, `backups/active`);
       } catch (logErr) {}
     }
   };
@@ -169,7 +169,7 @@ export default function BackupHub({
     }
     setCloudStatus({ type: 'loading', message: 'Connecting to Cloud secure node and querying backup file...' });
     
-    const docRef = doc(firestoreDb, 'users', currentUser.uid, 'backups', 'active');
+    const docRef = doc(firestoreDb, 'backups', 'active');
     try {
       const snap = await getDoc(docRef);
       if (snap.exists()) {
@@ -202,7 +202,7 @@ export default function BackupHub({
         message: `Failed to restore backup. ${err.message}`
       });
       try {
-        handleFirestoreError(err, OperationType.GET, `users/${currentUser.uid}/backups/active`);
+        handleFirestoreError(err, OperationType.GET, `backups/active`);
       } catch (logErr) {}
     }
   };
