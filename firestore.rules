@@ -25,9 +25,7 @@ service cloud.firestore {
     }
 
     function isValidUserBackup(data) {
-      return data.keys().hasAll(['userId', 'updatedAt', 'database'])
-        && data.keys().size() == 3
-        && data.userId is string
+      return data.userId is string
         && data.userId.size() <= 128
         && data.database is map;
     }
@@ -35,9 +33,7 @@ service cloud.firestore {
     match /backups/{backupDocId} {
       allow read, delete: if isSignedIn() && isValidId(backupDocId);
       allow create, update: if isSignedIn() && isValidId(backupDocId) 
-        && isValidUserBackup(incoming())
-        && incoming().userId == request.auth.uid
-        && incoming().updatedAt == request.time;
+        && isValidUserBackup(incoming());
     }
   }
 }

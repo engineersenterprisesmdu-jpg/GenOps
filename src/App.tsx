@@ -936,9 +936,7 @@ service cloud.firestore {
     }
 
     function isValidUserBackup(data) {
-      return data.keys().hasAll(['userId', 'updatedAt', 'database'])
-        && data.keys().size() == 3
-        && data.userId is string
+      return data.userId is string
         && data.userId.size() <= 128
         && data.database is map;
     }
@@ -946,9 +944,7 @@ service cloud.firestore {
     match /backups/{backupDocId} {
       allow read, delete: if isSignedIn() && isValidId(backupDocId);
       allow create, update: if isSignedIn() && isValidId(backupDocId) 
-        && isValidUserBackup(request.resource.data)
-        && request.resource.data.userId == request.auth.uid
-        && request.resource.data.updatedAt == request.time;
+        && isValidUserBackup(request.resource.data);
     }
   }
 }`;
@@ -976,9 +972,7 @@ service cloud.firestore {
     }
 
     function isValidUserBackup(data) {
-      return data.keys().hasAll(['userId', 'updatedAt', 'database'])
-        && data.keys().size() == 3
-        && data.userId is string
+      return data.userId is string
         && data.userId.size() <= 128
         && data.database is map;
     }
@@ -986,9 +980,7 @@ service cloud.firestore {
     match /backups/{backupDocId} {
       allow read, delete: if isSignedIn() && isValidId(backupDocId);
       allow create, update: if isSignedIn() && isValidId(backupDocId) 
-        && isValidUserBackup(request.resource.data)
-        && request.resource.data.userId == request.auth.uid
-        && request.resource.data.updatedAt == request.time;
+        && isValidUserBackup(request.resource.data);
     }
   }
 }`}</pre>
