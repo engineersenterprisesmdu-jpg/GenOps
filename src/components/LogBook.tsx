@@ -834,7 +834,7 @@ export default function LogBook({ db, onUpdateDb, selectedMonth }: LogBookProps)
                     <span className="p-1 px-2.5 bg-indigo-100 text-indigo-900 text-[10px] font-bold rounded uppercase">
                       Inspect & View Mode
                     </span>
-                    <h2 className="text-base font-extrabold text-slate-900 mt-1 block">{activeGenset.siteName} (Period Register)</h2>
+                    <h2 className="text-base font-extrabold text-slate-900 mt-1 block">{activeGenset.siteName} (Genset Log Register)</h2>
                     <p className="text-xs text-slate-450">
                       DO Zone: <strong>{selectedDo}</strong> | Billing cycle: <strong className="text-slate-650">{formatMonthKeyLabel(selectedMonthKey)}</strong>
                     </p>
@@ -867,6 +867,30 @@ export default function LogBook({ db, onUpdateDb, selectedMonth }: LogBookProps)
                   <div className="p-3 bg-blue-10/20 rounded-lg border border-blue-100">
                     <span className="text-[9px] uppercase text-blue-600 block font-bold leading-none">Overall Run Hours</span>
                     <span className="block mt-1.5 text-blue-900 font-mono text-sm font-black">{formatMinutesToTime(grandTotalMins)} Hours</span>
+                  </div>
+                </div>
+
+                {/* Audit Reconciliation Details block requested by user */}
+                <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 text-xs text-slate-700 font-semibold font-mono">
+                    <div className="bg-white p-2.5 rounded-lg border border-slate-150 shadow-2xs">
+                      <span className="text-[9px] uppercase text-slate-405 font-sans font-extrabold block mb-0.5">Clock Log</span>
+                      <span className="text-slate-900 font-bold">{formatMinutesToTime(grandTotalMins)} Hrs</span>
+                    </div>
+                    <div className="bg-white p-2.5 rounded-lg border border-slate-150 shadow-2xs">
+                      <span className="text-[9px] uppercase text-slate-405 font-sans font-extrabold block mb-0.5">Meter Run</span>
+                      <span className="text-slate-900 font-bold">{formatMinutesToTime(meterDifferenceMins)} Hrs</span>
+                    </div>
+                    <div className={`p-2.5 rounded-lg border shadow-2xs ${doesTallySynchronize ? 'bg-emerald-50/50 border-emerald-200 text-emerald-800' : 'bg-amber-50/50 border-amber-200 text-amber-900'}`}>
+                      <span className="text-[9px] uppercase text-slate-405 font-sans font-extrabold block mb-0.5">Difference</span>
+                      <span className="font-extrabold">
+                        {doesTallySynchronize ? (
+                          <span>0 Hrs (Perfect Match)</span>
+                        ) : (
+                          <span>{formatMinutesToTime(Math.abs(grandTotalMins - meterDifferenceMins))} Hrs ({grandTotalMins > meterDifferenceMins ? 'Over-logged' : 'Under-logged'})</span>
+                        )}
+                      </span>
+                    </div>
                   </div>
                 </div>
 

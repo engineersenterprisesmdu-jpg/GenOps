@@ -489,7 +489,7 @@ export default function Reports({ db, selectedMonth, setSelectedMonth }: Reports
             {/* Audit Status Card: compares Clock log to Generator Meter */}
             <div className="border border-slate-250 rounded-lg p-3 bg-slate-50/50 flex items-start gap-2.5 text-[10.5px] leading-relaxed my-5">
               <Info className="h-4.5 w-4.5 text-blue-600 shrink-0 mt-0.5" />
-              <div>
+              <div className="w-full">
                 <p className="font-extrabold text-slate-800 uppercase tracking-wider text-[10px]">
                   Audit & Compliance Verification Indicator:
                 </p>
@@ -501,7 +501,30 @@ export default function Reports({ db, selectedMonth, setSelectedMonth }: Reports
                   )}{" "}
                   Comparing <strong>Clock Total: {formatMinutesToTime(clockMins)} Hrs</strong> against <strong>Generator Meter Total: {formatMinutesToTime(meterDiffMins)} Hrs</strong>.
                 </p>
-                <div className="mt-1.5 flex items-center gap-1.5">
+
+                {/* Specific metrics grid matching user's exact specification */}
+                <div className="mt-2.5 grid grid-cols-1 sm:grid-cols-3 gap-2.5 font-mono text-[10px] bg-white p-2 rounded border border-slate-200">
+                  <div className="p-1">
+                    <span className="text-slate-400 uppercase font-sans text-[8px] font-bold block">Clock Log:</span>
+                    <strong className="text-slate-800 font-extrabold">{formatMinutesToTime(clockMins)} Hrs</strong>
+                  </div>
+                  <div className="p-1">
+                    <span className="text-slate-400 uppercase font-sans text-[8px] font-bold block">Meter Run:</span>
+                    <strong className="text-slate-800 font-extrabold">{formatMinutesToTime(meterDiffMins)} Hrs</strong>
+                  </div>
+                  <div className="p-1">
+                    <span className="text-slate-400 uppercase font-sans text-[8px] font-bold block">Difference:</span>
+                    <strong className={Math.abs(clockMins - meterDiffMins) < 1.0 ? "text-emerald-700" : "text-amber-700"}>
+                      {Math.abs(clockMins - meterDiffMins) < 1.0 ? (
+                        "0 Hrs (Perfect Match)"
+                      ) : (
+                        `${formatMinutesToTime(Math.abs(clockMins - meterDiffMins))} Hrs (${clockMins > meterDiffMins ? 'Over-logged' : 'Under-logged'})`
+                      )}
+                    </strong>
+                  </div>
+                </div>
+
+                <div className="mt-2 flex items-center gap-1.5">
                   {Math.abs(clockMins - meterDiffMins) < 1.0 ? (
                     <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded text-[9px] uppercase">
                       ● Status: 100% Fully Tallied & Accurate
