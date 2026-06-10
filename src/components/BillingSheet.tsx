@@ -246,9 +246,16 @@ export default function BillingSheet({ db, onUpdateDb, selectedMonth, setSelecte
       // Assign sequentially for all generator sites in active groups
       prev.gensets.forEach(g => {
         const logIndex = updatedLogs.findIndex(l => l.gensetId === g.id && l.monthKey === selectedMonth);
+        const existingLogObj = logIndex >= 0 ? updatedLogs[logIndex] : null;
+
+        // Skip applying invoice numbers to gensets marked as Nil Submission as requested
+        if (existingLogObj && existingLogObj.isNilSubmission) {
+          return;
+        }
+
         const billStr = `${generalBillPrefix}${(baseNo + runIndex).toString().padStart(4, '0')}`;
         
-        const existingLog = logIndex >= 0 ? updatedLogs[logIndex] : {
+        const existingLog = existingLogObj || {
           id: `log-${g.id}-${selectedMonth}`,
           gensetId: g.id,
           monthKey: selectedMonth,
@@ -318,23 +325,27 @@ export default function BillingSheet({ db, onUpdateDb, selectedMonth, setSelecte
         billDate: ''
       };
 
+      const isNil = !!log.isNilSubmission;
+
       // Math
-      const clockMins = log.entries.reduce((sum, e) => sum + e.durationMinutes, 0);
-      const totalHrsDec = clockMins / 60;
+      const clockMins = isNil ? 0 : log.entries.reduce((sum, e) => sum + e.durationMinutes, 0);
+      const totalHrsDec = isNil ? 0 : clockMins / 60;
       
       const priceConfig = getSubzonePriceForSite(g, client.zone);
-      const fuelPrice = priceConfig.averagePrice;
+      const fuelPrice = isNil ? 0 : priceConfig.averagePrice;
       
-      const costPerHour = parseFloat((g.dieselQuantityPerHour * fuelPrice).toFixed(2));
-      const subtotalCost = Math.round(costPerHour * totalHrsDec);
+      const costPerHour = isNil ? 0 : parseFloat((g.dieselQuantityPerHour * fuelPrice).toFixed(2));
+      const subtotalCost = isNil ? 0 : Math.round(costPerHour * totalHrsDec);
 
       // Taxes
       let cgst = 0, sgst = 0, igst = 0;
-      if (g.gstType === 'CGST_SGST') {
-        cgst = parseFloat((subtotalCost * 0.09).toFixed(2));
-        sgst = parseFloat((subtotalCost * 0.09).toFixed(2));
-      } else {
-        igst = parseFloat((subtotalCost * 0.18).toFixed(2));
+      if (!isNil) {
+        if (g.gstType === 'CGST_SGST') {
+          cgst = parseFloat((subtotalCost * 0.09).toFixed(2));
+          sgst = parseFloat((subtotalCost * 0.09).toFixed(2));
+        } else {
+          igst = parseFloat((subtotalCost * 0.18).toFixed(2));
+        }
       }
 
       const totalWithTax = subtotalCost + cgst + sgst + igst;
@@ -386,24 +397,48 @@ export default function BillingSheet({ db, onUpdateDb, selectedMonth, setSelecte
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          {/* Active Month Dropdown Selector */}
+          {/* Active Month Dropdown Selector (Split into Year & Month) */}
           <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 p-1.5 rounded-lg">
             <span className="text-xs font-bold text-slate-600 pl-1 uppercase tracking-wide">Active Month:</span>
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="text-xs font-bold text-blue-800 bg-white border border-slate-200 rounded p-1 focus:outline-none"
-            >
-              {monthsSelectOptions.map(m => (
-                <option key={m} value={m}>
-                  {(() => {
-                    const [year, month] = m.split('-');
-                    const date = new Date(parseInt(year), parseInt(month) - 1, 1);
-                    return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-                  })()}
-                </option>
-              ))}
-            </select>
+            {(() => {
+              const [yr, mo] = (selectedMonth || '2026-04').split('-');
+              const months = [
+                { value: '01', name: 'January' },
+                { value: '02', name: 'February' },
+                { value: '03', name: 'March' },
+                { value: '04', name: 'April' },
+                { value: '05', name: 'May' },
+                { value: '06', name: 'June' },
+                { value: '07', name: 'July' },
+                { value: '08', name: 'August' },
+                { value: '09', name: 'September' },
+                { value: '10', name: 'October' },
+                { value: '11', name: 'November' },
+                { value: '12', name: 'December' },
+              ];
+              const years = [];
+              for (let y = 2020; y <= 2100; y++) {
+                years.push(String(y));
+              }
+              return (
+                <div className="flex gap-1.5 items-center">
+                  <select
+                    value={yr}
+                    onChange={(e) => setSelectedMonth(`${e.target.value}-${mo}`)}
+                    className="text-xs font-bold text-blue-800 bg-white border border-slate-200 rounded p-1 focus:outline-none"
+                  >
+                    {years.map(y => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                  <select
+                    value={mo}
+                    onChange={(e) => setSelectedMonth(`${yr}-${e.target.value}`)}
+                    className="text-xs font-bold text-blue-800 bg-white border border-slate-200 rounded p-1 focus:outline-none"
+                  >
+                    {months.map(m => <option key={m.value} value={m.value}>{m.name}</option>)}
+                  </select>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Alter Lists Order Mode selector */}
@@ -576,10 +611,16 @@ export default function BillingSheet({ db, onUpdateDb, selectedMonth, setSelecte
                 </thead>
                 <tbody className="divide-y divide-slate-150">
                   {divisionRows.map(row => {
-                    const clockHrsStr = formatMinutesToTime(row.clockMins);
+                    const isRowNil = !!row.log.isNilSubmission;
+                    const clockHrsStr = isRowNil ? '0.00 (NIL)' : formatMinutesToTime(row.clockMins);
 
                     return (
-                      <tr key={row.genset.id} className="hover:bg-slate-50/60 transition text-slate-755 font-mono text-[10.5px]">
+                      <tr 
+                        key={row.genset.id} 
+                        className={`hover:bg-slate-50/60 transition text-slate-755 font-mono text-[10.5px] ${
+                          isRowNil ? 'bg-amber-50/10 opacity-60' : ''
+                        }`}
+                      >
                         <td className="py-1.5 px-2 font-sans font-bold text-slate-800 text-left flex items-center gap-2">
                           {reorderMode && (
                             <div className="flex gap-1 bg-slate-100 p-0.5 rounded border border-slate-200 shrink-0 select-none">
@@ -588,6 +629,7 @@ export default function BillingSheet({ db, onUpdateDb, selectedMonth, setSelecte
                                 onClick={() => moveGensetUp(row.genset.id)}
                                 className="text-[9px] hover:bg-white text-slate-700 font-bold px-1 rounded transition cursor-pointer"
                                 title="Move Site Up"
+                                disabled={isRowNil}
                               >
                                 ▲
                               </button>
@@ -596,12 +638,18 @@ export default function BillingSheet({ db, onUpdateDb, selectedMonth, setSelecte
                                 onClick={() => moveGensetDown(row.genset.id)}
                                 className="text-[9px] hover:bg-white text-slate-700 font-bold px-1 rounded transition cursor-pointer"
                                 title="Move Site Down"
+                                disabled={isRowNil}
                               >
                                 ▼
                               </button>
                             </div>
                           )}
                           <span>{row.genset.siteName}</span>
+                          {isRowNil && (
+                            <span className="px-1 py-0.5 text-[8px] font-black text-amber-800 bg-amber-100 rounded border border-amber-350 uppercase shrink-0">
+                              NIL
+                            </span>
+                          )}
                         </td>
                         <td className="py-1.5 px-2 font-sans text-left text-slate-500">{row.genset.capacity}</td>
                         <td className="py-1.5 px-2 text-right text-slate-500">{row.genset.dieselQuantityPerHour} L</td>
@@ -610,7 +658,8 @@ export default function BillingSheet({ db, onUpdateDb, selectedMonth, setSelecte
                         <td className="py-1.5 px-2">
                           <input
                             type="text"
-                            value={row.log.billNo || ''}
+                            value={isRowNil ? 'NIL SUBMISSION' : (row.log.billNo || '')}
+                            disabled={isRowNil}
                             onChange={(e) => {
                               const newVal = e.target.value;
                               onUpdateDb(prev => {
@@ -633,14 +682,19 @@ export default function BillingSheet({ db, onUpdateDb, selectedMonth, setSelecte
                                 return { ...prev, siteLogs: newLogs };
                               });
                             }}
-                            placeholder="Invoice No"
-                            className="w-28 text-[11px] font-sans font-semibold text-slate-700 bg-slate-50 border border-slate-200 focus:bg-white rounded p-1 font-mono focus:outline-none"
+                            placeholder={isRowNil ? 'NIL - Skipped' : 'Invoice No'}
+                            className={`w-28 text-[11px] font-sans font-semibold rounded p-1 font-mono focus:outline-none border ${
+                              isRowNil 
+                                ? 'bg-amber-50/50 text-amber-800 border-amber-200 cursor-not-allowed' 
+                                : 'bg-slate-50 border-slate-200 text-slate-700 focus:bg-white'
+                            }`}
                           />
                         </td>
                         <td className="py-1.5 px-2">
                           <input
                             type="date"
-                            value={row.log.billDate || ''}
+                            value={isRowNil ? '' : (row.log.billDate || '')}
+                            disabled={isRowNil}
                             onChange={(e) => {
                               const newVal = e.target.value;
                               onUpdateDb(prev => {
@@ -663,13 +717,17 @@ export default function BillingSheet({ db, onUpdateDb, selectedMonth, setSelecte
                                 return { ...prev, siteLogs: newLogs };
                               });
                             }}
-                            className="w-28 text-[11px] font-sans text-slate-705 bg-slate-50 border border-slate-200 focus:bg-white rounded p-1 font-mono focus:outline-none"
+                            className={`w-28 text-[11px] font-sans rounded p-1 font-mono focus:outline-none border ${
+                              isRowNil 
+                                ? 'bg-amber-50/50 text-amber-850 border-amber-200 cursor-not-allowed' 
+                                : 'bg-slate-50 border-slate-200 text-slate-705 focus:bg-white'
+                            }`}
                           />
                         </td>
 
                         <td className="py-1.5 px-2 text-right font-semibold text-amber-700">₹{row.fuelPrice.toFixed(2)}</td>
                         <td className="py-1.5 px-2 text-right text-slate-600">₹{row.costPerHour.toFixed(2)}</td>
-                        <td className="py-1.5 px-2 text-center text-blue-650 font-extrabold">{clockHrsStr} Hrs</td>
+                        <td className={`py-1.5 px-2 text-center font-extrabold ${isRowNil ? 'text-amber-700' : 'text-blue-650'}`}>{clockHrsStr}</td>
                         <td className="py-1.5 px-2 text-right font-bold text-slate-800">₹{row.subtotalCost.toLocaleString('en-IN')}</td>
                         
                         {client.zone.toLowerCase().includes('salem') ? (
@@ -688,51 +746,62 @@ export default function BillingSheet({ db, onUpdateDb, selectedMonth, setSelecte
                         <td className="py-1.5 px-2 text-right bg-blue-50/40 font-bold text-blue-900">₹{row.grandTotal.toLocaleString('en-IN')}</td>
                         <td className="py-1.5 px-2 text-center font-sans">
                           <button
-                            onClick={() => onSelectInvoice(row.genset.id)}
-                            className="bg-slate-100 hover:bg-blue-100 hover:text-blue-700 text-slate-600 p-1 rounded transition flex items-center justify-center mx-auto cursor-pointer"
-                            title="Generate single Tax Invoice"
+                            onClick={() => !isRowNil && onSelectInvoice(row.genset.id)}
+                            disabled={isRowNil}
+                            className={`p-1 rounded transition flex items-center justify-center mx-auto ${
+                              isRowNil 
+                                ? 'bg-slate-50 text-slate-300 cursor-not-allowed opacity-40' 
+                                : 'bg-slate-100 hover:bg-blue-100 hover:text-blue-700 text-slate-600 cursor-pointer'
+                            }`}
+                            title={isRowNil ? 'Invoice bypassed for NIL submission' : 'Generate single Tax Invoice'}
                           >
                             <Printer className="h-3 w-3" />
                           </button>
                         </td>
                         <td className="py-1.5 px-1.5 text-center font-sans">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              onUpdateDb(prev => {
-                                const idx = prev.siteLogs.findIndex(l => l.gensetId === row.genset.id && l.monthKey === selectedMonth);
-                                let newLogs = [...prev.siteLogs];
-                                if (idx >= 0) {
-                                  const wasPaid = !!newLogs[idx].isPaid;
-                                  newLogs[idx] = { 
-                                    ...newLogs[idx], 
-                                    isPaid: !wasPaid, 
-                                    paymentDate: !wasPaid ? new Date().toISOString().split('T')[0] : undefined
-                                  };
-                                } else {
-                                  newLogs.push({
-                                    id: `log-${row.genset.id}-${selectedMonth}`,
-                                    gensetId: row.genset.id,
-                                    monthKey: selectedMonth,
-                                    startMeter: '0.0',
-                                    endMeter: '0.0',
-                                    entries: [],
-                                    isPaid: true,
-                                    paymentDate: new Date().toISOString().split('T')[0]
-                                  });
-                                }
-                                return { ...prev, siteLogs: newLogs };
-                              });
-                            }}
-                            className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase transition block mx-auto cursor-pointer border ${
-                              row.log.isPaid 
-                                ? 'bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-200' 
-                                : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
-                            }`}
-                            title={row.log.isPaid ? `Paid on ${row.log.paymentDate || 'N/A'}. Click to mark Pending.` : 'Pending. Click to mark Paid.'}
-                          >
-                            {row.log.isPaid ? 'Paid' : 'Pending'}
-                          </button>
+                          {isRowNil ? (
+                            <span className="text-[9px] font-bold text-amber-750 bg-amber-50 rounded border border-amber-200 px-1.5 py-0.5 uppercase">
+                              NIL OK
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                onUpdateDb(prev => {
+                                  const idx = prev.siteLogs.findIndex(l => l.gensetId === row.genset.id && l.monthKey === selectedMonth);
+                                  let newLogs = [...prev.siteLogs];
+                                  if (idx >= 0) {
+                                    const wasPaid = !!newLogs[idx].isPaid;
+                                    newLogs[idx] = { 
+                                      ...newLogs[idx], 
+                                      isPaid: !wasPaid, 
+                                      paymentDate: !wasPaid ? new Date().toISOString().split('T')[0] : undefined
+                                    };
+                                  } else {
+                                    newLogs.push({
+                                      id: `log-${row.genset.id}-${selectedMonth}`,
+                                      gensetId: row.genset.id,
+                                      monthKey: selectedMonth,
+                                      startMeter: '0.0',
+                                      endMeter: '0.0',
+                                      entries: [],
+                                      isPaid: true,
+                                      paymentDate: new Date().toISOString().split('T')[0]
+                                    });
+                                  }
+                                  return { ...prev, siteLogs: newLogs };
+                                });
+                              }}
+                              className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase transition block mx-auto cursor-pointer border ${
+                                row.log.isPaid 
+                                  ? 'bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-200' 
+                                  : 'bg-amber-55 text-amber-750 border-amber-200 hover:bg-amber-100'
+                              }`}
+                              title={row.log.isPaid ? `Paid on ${row.log.paymentDate || 'N/A'}. Click to mark Pending.` : 'Pending. Click to mark Paid.'}
+                            >
+                              {row.log.isPaid ? 'Paid' : 'Pending'}
+                            </button>
+                          )}
                         </td>
                       </tr>
                     );

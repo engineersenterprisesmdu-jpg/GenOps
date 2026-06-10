@@ -359,23 +359,57 @@ export default function PaymentReceipts({ db, onUpdateDb, selectedMonth, setSele
         
         <div className="flex items-center gap-2.5 flex-wrap">
           <span className="text-xs text-slate-400 font-bold uppercase">Period:</span>
-          <select
-            value={selectedMonthLocal}
-            onChange={(e) => {
-              const val = e.target.value;
-              setSelectedMonthLocal(val);
-              if (setSelectedMonth) {
-                setSelectedMonth(val);
-              }
-            }}
-            className="rounded border border-slate-200 text-xs bg-slate-50 text-slate-800 font-bold px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          >
-            {availableMonthsList.map(m => (
-              <option key={m} value={m}>
-                {new Date(m + '-01').toLocaleDateString('en', { month: 'long', year: 'numeric' })}
-              </option>
-            ))}
-          </select>
+          {(() => {
+            const [yr, mo] = (selectedMonthLocal || '2026-04').split('-');
+            const months = [
+              { value: '01', name: 'January' },
+              { value: '02', name: 'February' },
+              { value: '03', name: 'March' },
+              { value: '04', name: 'April' },
+              { value: '05', name: 'May' },
+              { value: '06', name: 'June' },
+              { value: '07', name: 'July' },
+              { value: '08', name: 'August' },
+              { value: '09', name: 'September' },
+              { value: '10', name: 'October' },
+              { value: '11', name: 'November' },
+              { value: '12', name: 'December' },
+            ];
+            const years = [];
+            for (let y = 2020; y <= 2100; y++) {
+              years.push(String(y));
+            }
+            return (
+              <div className="flex gap-1.5 items-center">
+                <select
+                  value={yr}
+                  onChange={(e) => {
+                    const nextVal = `${e.target.value}-${mo}`;
+                    setSelectedMonthLocal(nextVal);
+                    if (setSelectedMonth) {
+                      setSelectedMonth(nextVal);
+                    }
+                  }}
+                  className="rounded border border-slate-200 text-xs bg-slate-50 text-slate-800 font-bold px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  {years.map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+                <select
+                  value={mo}
+                  onChange={(e) => {
+                    const nextVal = `${yr}-${e.target.value}`;
+                    setSelectedMonthLocal(nextVal);
+                    if (setSelectedMonth) {
+                      setSelectedMonth(nextVal);
+                    }
+                  }}
+                  className="rounded border border-slate-200 text-xs bg-slate-50 text-slate-800 font-bold px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  {months.map(m => <option key={m.value} value={m.value}>{m.name}</option>)}
+                </select>
+              </div>
+            );
+          })()}
           <button
             onClick={() => setShowConsolidatedReport(true)}
             className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-lg cursor-pointer transition shadow-xs hover:shadow"

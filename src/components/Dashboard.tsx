@@ -428,45 +428,134 @@ export default function Dashboard({ db, onNavigate, selectedMonth, setSelectedMo
           </div>
 
           {periodType === 'single' ? (
-            <div className="flex items-center gap-1">
-              <span className="text-slate-400 font-normal">Month:</span>
-              <select
-                id="month-period-select"
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                className="rounded border border-slate-200 bg-white text-slate-805 font-bold px-2 py-0.5"
-              >
-                {reverseChronologicalMonths.map(m => (
-                  <option key={m} value={m}>{formatMonthLabel(m)}</option>
-                ))}
-              </select>
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-400 font-normal">Month Period:</span>
+              {(() => {
+                const [yr, mo] = (selectedMonth || '2026-04').split('-');
+                const months = [
+                  { value: '01', name: 'January' },
+                  { value: '02', name: 'February' },
+                  { value: '03', name: 'March' },
+                  { value: '04', name: 'April' },
+                  { value: '05', name: 'May' },
+                  { value: '06', name: 'June' },
+                  { value: '07', name: 'July' },
+                  { value: '08', name: 'August' },
+                  { value: '09', name: 'September' },
+                  { value: '10', name: 'October' },
+                  { value: '11', name: 'November' },
+                  { value: '12', name: 'December' },
+                ];
+                const years = [];
+                for (let y = 2020; y <= 2100; y++) {
+                  years.push(String(y));
+                }
+                return (
+                  <div className="flex gap-1.5 items-center">
+                    <select
+                      value={yr}
+                      onChange={(e) => setSelectedMonth(`${e.target.value}-${mo}`)}
+                      className="rounded border border-slate-200 bg-white text-slate-805 font-bold px-2 py-0.5 text-xs focus:outline-none"
+                    >
+                      {years.map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                    <select
+                      value={mo}
+                      onChange={(e) => setSelectedMonth(`${yr}-${e.target.value}`)}
+                      className="rounded border border-slate-200 bg-white text-slate-805 font-bold px-2 py-0.5 text-xs focus:outline-none"
+                    >
+                      {months.map(m => <option key={m.value} value={m.value}>{m.name}</option>)}
+                    </select>
+                  </div>
+                );
+              })()}
             </div>
           ) : (
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-1.5">
                 <span className="text-slate-400 font-normal">From:</span>
-                <select
-                  value={startMonth}
-                  onChange={(e) => setStartMonth(e.target.value)}
-                  className="rounded border border-slate-200 bg-white text-slate-805 font-bold px-1.5 py-0.5"
-                >
-                  {chronologicalMonths.map(m => (
-                    <option key={m} value={m}>{formatMonthLabel(m)}</option>
-                  ))}
-                </select>
+                {(() => {
+                  const [yr, mo] = (startMonth || '2026-01').split('-');
+                  const months = [
+                    { value: '01', name: 'January' },
+                    { value: '02', name: 'February' },
+                    { value: '03', name: 'March' },
+                    { value: '04', name: 'April' },
+                    { value: '05', name: 'May' },
+                    { value: '06', name: 'June' },
+                    { value: '07', name: 'July' },
+                    { value: '08', name: 'August' },
+                    { value: '09', name: 'September' },
+                    { value: '10', name: 'October' },
+                    { value: '11', name: 'November' },
+                    { value: '12', name: 'December' },
+                  ];
+                  const years = [];
+                  for (let y = 2020; y <= 2100; y++) {
+                    years.push(String(y));
+                  }
+                  return (
+                    <div className="flex gap-1.5 items-center">
+                      <select
+                        value={yr}
+                        onChange={(e) => setStartMonth(`${e.target.value}-${mo}`)}
+                        className="rounded border border-slate-200 bg-white text-slate-805 font-bold px-2 py-0.5 text-xs focus:outline-none"
+                      >
+                        {years.map(y => <option key={y} value={y}>{y}</option>)}
+                      </select>
+                      <select
+                        value={mo}
+                        onChange={(e) => setStartMonth(`${yr}-${e.target.value}`)}
+                        className="rounded border border-slate-200 bg-white text-slate-805 font-bold px-2 py-0.5 text-xs focus:outline-none"
+                      >
+                        {months.map(m => <option key={m.value} value={m.value}>{m.name}</option>)}
+                      </select>
+                    </div>
+                  );
+                })()}
               </div>
 
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5">
                 <span className="text-slate-400 font-normal">To:</span>
-                <select
-                  value={endMonth}
-                  onChange={(e) => setEndMonth(e.target.value)}
-                  className="rounded border border-slate-200 bg-white text-slate-805 font-bold px-1.5 py-0.5"
-                >
-                  {chronologicalMonths.map(m => (
-                    <option key={m} value={m}>{formatMonthLabel(m)}</option>
-                  ))}
-                </select>
+                {(() => {
+                  const [yr, mo] = (endMonth || '2026-12').split('-');
+                  const months = [
+                    { value: '01', name: 'January' },
+                    { value: '02', name: 'February' },
+                    { value: '03', name: 'March' },
+                    { value: '04', name: 'April' },
+                    { value: '05', name: 'May' },
+                    { value: '06', name: 'June' },
+                    { value: '07', name: 'July' },
+                    { value: '08', name: 'August' },
+                    { value: '09', name: 'September' },
+                    { value: '10', name: 'October' },
+                    { value: '11', name: 'November' },
+                    { value: '12', name: 'December' },
+                  ];
+                  const years = [];
+                  for (let y = 2020; y <= 2100; y++) {
+                    years.push(String(y));
+                  }
+                  return (
+                    <div className="flex gap-1.5 items-center">
+                      <select
+                        value={yr}
+                        onChange={(e) => setEndMonth(`${e.target.value}-${mo}`)}
+                        className="rounded border border-slate-200 bg-white text-slate-805 font-bold px-2 py-0.5 text-xs focus:outline-none"
+                      >
+                        {years.map(y => <option key={y} value={y}>{y}</option>)}
+                      </select>
+                      <select
+                        value={mo}
+                        onChange={(e) => setEndMonth(`${yr}-${e.target.value}`)}
+                        className="rounded border border-slate-200 bg-white text-slate-805 font-bold px-2 py-0.5 text-xs focus:outline-none"
+                      >
+                        {months.map(m => <option key={m.value} value={m.value}>{m.name}</option>)}
+                      </select>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           )}

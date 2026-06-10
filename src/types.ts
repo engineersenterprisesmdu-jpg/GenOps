@@ -74,6 +74,7 @@ export interface SiteLog {
   billNo?: string; // Optional user override/custom entry for billing
   billDate?: string; // Optional user override/custom entry for billing
   isSubmitted?: boolean; // Submit flag for audit submission lockdown
+  isNilSubmission?: boolean; // Nil submission flag when no running hours exist
   isPaid?: boolean; // Optional payment status
   paymentDate?: string; // Optional date payment was received
   paymentRef?: string; // Optional transaction ID or check number

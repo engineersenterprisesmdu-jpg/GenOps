@@ -259,8 +259,8 @@ export default function LogBook({ db, onUpdateDb, selectedMonth, activeGensetId,
   // Support independent selection without limit (Year & Month)
   const yearsList = useMemo(() => {
     const list = [];
-    // Show years from 2024 to 2040
-    for (let y = 2024; y <= 2040; y++) {
+    // Show years from 2020 to 2100 for virtually unlimited future compatibility
+    for (let y = 2020; y <= 2100; y++) {
       list.push(String(y));
     }
     return list;
@@ -759,6 +759,43 @@ export default function LogBook({ db, onUpdateDb, selectedMonth, activeGensetId,
                   )}
                 </div>
 
+                {/* NIL Submission Toggle Card */}
+                <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+                      <div className={`h-2.5 w-2.5 rounded-full ${currentSiteLog.isNilSubmission ? 'bg-amber-500 animate-pulse' : 'bg-slate-350'}`}></div>
+                      Nil Submission (No Running Hours)
+                    </h4>
+                    <p className="text-[10px] text-slate-400 mt-0.5 leading-normal">
+                      Enable this option if this generator had absolutely zero running hours in this cycle. This will skip invoice and fuel bill processing.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={!!currentSiteLog.isNilSubmission}
+                        disabled={!!currentSiteLog.isSubmitted}
+                        onChange={(e) => {
+                          const isChecked = e.target.checked;
+                          const updated = {
+                            ...currentSiteLog,
+                            isNilSubmission: isChecked,
+                            endMeter: isChecked ? currentSiteLog.startMeter : currentSiteLog.endMeter,
+                            entries: isChecked ? [] : currentSiteLog.entries
+                          };
+                          saveLogRecord(updated);
+                        }}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                    </label>
+                    <span className="text-xs font-bold text-slate-705 shrink-0">
+                      {currentSiteLog.isNilSubmission ? 'Marked NIL' : 'Active Log'}
+                    </span>
+                  </div>
+                </div>
+
                 {/* Automation Info Notification for start reading tracking */}
                 {lastMonthInfo.hasPrev && (
                   <div className="bg-blue-50/80 rounded-xl border border-blue-100 p-2.5 px-3 flex items-start gap-2 text-xs">
@@ -799,13 +836,15 @@ export default function LogBook({ db, onUpdateDb, selectedMonth, activeGensetId,
                     </label>
                     <input
                       type="text"
-                      value={currentSiteLog.endMeter}
+                      value={currentSiteLog.isNilSubmission ? currentSiteLog.startMeter : currentSiteLog.endMeter}
                       onChange={(e) => handleMeterFieldChange('end', e.target.value)}
-                      disabled={!!currentSiteLog.isSubmitted}
-                      className="w-full text-xs font-bold p-2 rounded border border-slate-200 bg-white font-mono focus:outline-none"
+                      disabled={!!currentSiteLog.isSubmitted || !!currentSiteLog.isNilSubmission}
+                      className={`w-full text-xs font-bold p-2 rounded border border-slate-200 font-mono focus:outline-none ${currentSiteLog.isNilSubmission ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-white'}`}
                       placeholder="e.g. 205.10"
                     />
-                    <p className="text-[9px] text-slate-400">Enter final month physical reading.</p>
+                    <p className="text-[9px] text-slate-400">
+                      {currentSiteLog.isNilSubmission ? 'Locked to start meter for NIL' : 'Enter final month physical reading.'}
+                    </p>
                   </div>
 
                   <div className="space-y-1">
@@ -957,7 +996,16 @@ export default function LogBook({ db, onUpdateDb, selectedMonth, activeGensetId,
                   </div>
 
                   {/* Add timing form block */}
-                  {!currentSiteLog.isSubmitted ? (
+                  {currentSiteLog.isNilSubmission ? (
+                    <div className="bg-amber-50 p-4 rounded-xl border border-amber-250 text-center text-xs text-amber-800 leading-normal font-sans space-y-1 mt-2">
+                      <strong className="block uppercase text-[10.5px] text-amber-900">⚠️ Skip Mode (NIL Submission)</strong>
+                      <span className="block text-[11px] text-amber-700">This generator is flagged as a NIL Submission with zero running hours. Clock entry recording is blocked.</span>
+                    </div>
+                  ) : currentSiteLog.isSubmitted ? (
+                    <div className="bg-red-50 p-4 rounded-xl border border-red-100 text-center text-xs text-red-800 leading-normal font-sans">
+                      ⚠️ Data Entry is locked because this site log sheet has been **submitted**. Please retract submission to adjust or add new logs.
+                    </div>
+                  ) : (
                     <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2.5 mt-2">
                       <h4 className="text-[10px] font-extrabold text-slate-600 uppercase tracking-widest pl-1">
                         Add Generator Clock Timing Record (with duration preview)
@@ -1023,10 +1071,6 @@ export default function LogBook({ db, onUpdateDb, selectedMonth, activeGensetId,
                         </button>
 
                       </div>
-                    </div>
-                  ) : (
-                    <div className="bg-red-50 p-4 rounded-xl border border-red-100 text-center text-xs text-red-800 leading-normal font-sans">
-                      ⚠️ Data Entry is locked because this site log sheet has been **submitted**. Please retract submission to adjust or add new logs.
                     </div>
                   )}
 
