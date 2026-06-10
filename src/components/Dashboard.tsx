@@ -487,7 +487,7 @@ export default function Dashboard({ db, onNavigate, selectedMonth, setSelectedMo
           }`}
         >
           <FileText className="h-4 w-4" />
-          <span>Generator Logs Auditor</span>
+          <span>Generator Diesel Log Book</span>
           <span className="ml-1 bg-blue-50 text-blue-800 text-[10px] px-1.5 py-0.2 rounded-full font-bold">
             {auditMetrics.totalBooked} / {auditMetrics.totalExpected}
           </span>
@@ -504,7 +504,7 @@ export default function Dashboard({ db, onNavigate, selectedMonth, setSelectedMo
           }`}
         >
           <CreditCard className="h-4 w-4" />
-          <span>Invoices & Payment Collections</span>
+          <span>Invoice/Receipts Tracking</span>
           <span className={`ml-1 text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
             paymentMetrics.pendingCount > 0 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
           }`}>
@@ -538,7 +538,7 @@ export default function Dashboard({ db, onNavigate, selectedMonth, setSelectedMo
                 <CheckCircle2 className="h-5 w-5" />
               </div>
               <div>
-                <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider block">Logs Booked / Submitted</span>
+                <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider block">Logs Entered / Submitted</span>
                 <span className="text-xl font-extrabold text-slate-850 block">{auditMetrics.totalBooked}</span>
                 <span className="text-[10px] text-emerald-600 font-semibold block">Entered successfully</span>
               </div>
@@ -579,7 +579,7 @@ export default function Dashboard({ db, onNavigate, selectedMonth, setSelectedMo
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1 border-b border-slate-100">
               <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                 <FileCheck className="h-4.5 w-4.5 text-blue-600" />
-                Audit Logs list of booked and pending entries
+                Audit Logs list of submitted and pending entries
               </h2>
 
               {/* Status filtering row */}
@@ -674,7 +674,7 @@ export default function Dashboard({ db, onNavigate, selectedMonth, setSelectedMo
                           <td className="py-2.5 px-3 text-center font-sans">
                             {item.isEntered ? (
                               <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                Booked 📄
+                                Submitted 📄
                               </span>
                             ) : (
                               <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase bg-amber-55 bg-amber-50 text-amber-805 border border-amber-200">

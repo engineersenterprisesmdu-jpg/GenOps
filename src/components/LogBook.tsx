@@ -54,7 +54,9 @@ import {
   Check,
   Building,
   Calendar,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Edit2,
+  X
 } from 'lucide-react';
 
 interface LogBookProps {
@@ -110,9 +112,14 @@ export default function LogBook({ db, onUpdateDb, selectedMonth, activeGensetId,
           setSelectedClientId(c.id);
         }
         setSelectedGensetId(activeGensetId);
-        if (setActiveGensetId) {
-          setActiveGensetId('');
-        }
+        
+        // Stabilize selections by postponing clearing of deep-link flag
+        const timer = setTimeout(() => {
+          if (setActiveGensetId) {
+            setActiveGensetId('');
+          }
+        }, 120);
+        return () => clearTimeout(timer);
       }
     }
   }, [activeGensetId, db.gensets, db.clients, setActiveGensetId]);
@@ -132,6 +139,12 @@ export default function LogBook({ db, onUpdateDb, selectedMonth, activeGensetId,
   const [convertInput, setConvertInput] = useState('');
   const [convertedOutput, setConvertedOutput] = useState({ time: '00:00', decimal: '0.0' });
 
+  // List level row editing states
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [editEntryDate, setEditEntryDate] = useState<string>('');
+  const [editEntryStart, setEditEntryStart] = useState<string>('00:00');
+  const [editEntryEnd, setEditEntryEnd] = useState<string>('00:00');
+
   // 1. Compute list of unique DO (zones) from all client records
   const dosList = useMemo(() => {
     const zones = new Set(db.clients.map(c => c.zone).filter(Boolean));
@@ -140,12 +153,18 @@ export default function LogBook({ db, onUpdateDb, selectedMonth, activeGensetId,
 
   // Sync default guided selections
   useEffect(() => {
+    // Skip default synchronization if there is an active deep link being settled
+    if (activeGensetId) return;
+
     if (dosList.length > 0 && !selectedDo) {
       setSelectedDo(dosList[0]);
     }
-  }, [dosList, selectedDo]);
+  }, [dosList, selectedDo, activeGensetId]);
 
   useEffect(() => {
+    // Skip default synchronization if there is an active deep link being settled
+    if (activeGensetId) return;
+
     if (selectedDo) {
       const filteredClients = db.clients.filter(c => c.zone === selectedDo);
       if (filteredClients.length > 0) {
@@ -156,9 +175,12 @@ export default function LogBook({ db, onUpdateDb, selectedMonth, activeGensetId,
         setSelectedClientId('');
       }
     }
-  }, [selectedDo, db.clients, selectedClientId]);
+  }, [selectedDo, db.clients, selectedClientId, activeGensetId]);
 
   useEffect(() => {
+    // Skip default synchronization if there is an active deep link being settled
+    if (activeGensetId) return;
+
     if (selectedClientId) {
       const filteredGensets = db.gensets.filter(g => g.clientId === selectedClientId);
       if (filteredGensets.length > 0) {
@@ -169,7 +191,7 @@ export default function LogBook({ db, onUpdateDb, selectedMonth, activeGensetId,
         setSelectedGensetId('');
       }
     }
-  }, [selectedClientId, db.gensets, selectedGensetId]);
+  }, [selectedClientId, db.gensets, selectedGensetId, activeGensetId]);
 
   // Handle parent month selection synchronization
   useEffect(() => {
@@ -233,6 +255,36 @@ export default function LogBook({ db, onUpdateDb, selectedMonth, activeGensetId,
     }
     return list;
   }, [selectedMonth]);
+
+  // Support independent selection without limit (Year & Month)
+  const yearsList = useMemo(() => {
+    const list = [];
+    // Show years from 2024 to 2040
+    for (let y = 2024; y <= 2040; y++) {
+      list.push(String(y));
+    }
+    return list;
+  }, []);
+
+  const monthsArray = [
+    { value: '01', label: 'January' },
+    { value: '02', label: 'February' },
+    { value: '03', label: 'March' },
+    { value: '04', label: 'April' },
+    { value: '05', label: 'May' },
+    { value: '06', label: 'June' },
+    { value: '07', label: 'July' },
+    { value: '08', label: 'August' },
+    { value: '09', label: 'September' },
+    { value: '10', label: 'October' },
+    { value: '11', label: 'November' },
+    { value: '12', label: 'December' },
+  ];
+
+  const [numYear, numMonth] = useMemo(() => {
+    const parts = selectedMonthKey.split('-');
+    return [parts[0] || '2026', parts[1] || '04'];
+  }, [selectedMonthKey]);
 
   // Retrive the active log record
   const currentSiteLog = useMemo(() => {
@@ -316,10 +368,34 @@ export default function LogBook({ db, onUpdateDb, selectedMonth, activeGensetId,
   // Safe manual meter fields update
   const handleMeterFieldChange = (field: 'start' | 'end', val: string) => {
     if (!currentSiteLog) return;
+    const format = activeGenset?.meterFormat || 'HH:MM';
+    
+    let sanitized = val;
+    if (format === 'HH:MM') {
+      // Allow only numbers and colons. Strip dot (.) when typing
+      sanitized = val.replace(/[^0-9:]/g, '');
+      // Ensure only one colon
+      const colonCount = (sanitized.match(/:/g) || []).length;
+      if (colonCount > 1) {
+        const parts = sanitized.split(':');
+        sanitized = parts[0] + ':' + parts.slice(1).join('');
+      }
+    } else {
+      // DECIMAL
+      // Allow only numbers and periods. Strip colon (:) when typing
+      sanitized = val.replace(/[^0-9.]/g, '');
+      // Ensure only one period
+      const dotCount = (sanitized.match(/\./g) || []).length;
+      if (dotCount > 1) {
+        const parts = sanitized.split('.');
+        sanitized = parts[0] + '.' + parts.slice(1).join('');
+      }
+    }
+
     const updated = {
       ...currentSiteLog,
-      startMeter: field === 'start' ? val : currentSiteLog.startMeter,
-      endMeter: field === 'end' ? val : currentSiteLog.endMeter
+      startMeter: field === 'start' ? sanitized : currentSiteLog.startMeter,
+      endMeter: field === 'end' ? sanitized : currentSiteLog.endMeter
     };
     saveLogRecord(updated);
   };
@@ -364,6 +440,42 @@ export default function LogBook({ db, onUpdateDb, selectedMonth, activeGensetId,
     saveLogRecord(updated);
   };
 
+  // Row editing initiation
+  const startEditing = (entry: LogEntry) => {
+    setEditingEntryId(entry.id);
+    setEditEntryDate(entry.date || '');
+    setEditEntryStart(entry.startTime || '00:00');
+    setEditEntryEnd(entry.endTime || '00:00');
+  };
+
+  // Save edited row
+  const handleSaveEdit = () => {
+    if (!currentSiteLog || !editingEntryId) return;
+    const durMins = calculateDurationMinutes(editEntryStart, editEntryEnd);
+    const updatedEntries = (currentSiteLog.entries || []).map(e => {
+      if (e.id === editingEntryId) {
+        return {
+          ...e,
+          date: editEntryDate,
+          startTime: editEntryStart,
+          endTime: editEntryEnd,
+          durationMinutes: durMins
+        };
+      }
+      return e;
+    });
+    saveLogRecord({
+      ...currentSiteLog,
+      entries: updatedEntries
+    });
+    setEditingEntryId(null);
+  };
+
+  // Cancel editing
+  const handleCancelEdit = () => {
+    setEditingEntryId(null);
+  };
+
   // Final submit state toggling
   const handleToggleSubmitState = (submitState: boolean) => {
     if (!currentSiteLog) return;
@@ -379,6 +491,12 @@ export default function LogBook({ db, onUpdateDb, selectedMonth, activeGensetId,
     if (!currentSiteLog || !currentSiteLog.entries) return 0;
     return currentSiteLog.entries.reduce((sum, e) => sum + e.durationMinutes, 0);
   }, [currentSiteLog]);
+
+  // Live preview duration for clock timing entry prior to quick-adding
+  const livePreviewDuration = useMemo(() => {
+    if (!newStart || !newEnd) return 0;
+    return calculateDurationMinutes(newStart, newEnd);
+  }, [newStart, newEnd]);
 
   // Compute difference based on start meter / end meter
   const meterDifferenceMins = useMemo(() => {
@@ -405,7 +523,7 @@ export default function LogBook({ db, onUpdateDb, selectedMonth, activeGensetId,
         <div>
           <h2 className="text-sm font-black uppercase tracking-wider flex items-center gap-1.5 text-blue-400">
             <FileSpreadsheet className="h-4 w-4" />
-            Log Book Register System
+            Log Book Register
           </h2>
           <p className="text-[10px] text-slate-400">
             Record client periods or compile audits across Divisional Offices (DOs).
@@ -423,7 +541,7 @@ export default function LogBook({ db, onUpdateDb, selectedMonth, activeGensetId,
             }`}
           >
             <PenTool className="h-3.5 w-3.5" />
-            Entry (Write Mode)
+            Log Book Entry
           </button>
           
           <button
@@ -435,7 +553,7 @@ export default function LogBook({ db, onUpdateDb, selectedMonth, activeGensetId,
             }`}
           >
             <Eye className="h-3.5 w-3.5" />
-            View (Inspect Mode)
+            View
           </button>
         </div>
       </div>
@@ -496,20 +614,45 @@ export default function LogBook({ db, onUpdateDb, selectedMonth, activeGensetId,
             </select>
           </div>
 
-          {/* Month selective Step */}
+          {/* Month selective Step (Split into Year and Month as requested) */}
           <div className="space-y-1">
             <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-1">
               <span>3.</span> Select Month Period
             </label>
-            <select
-              value={selectedMonthKey}
-              onChange={(e) => setSelectedMonthKey(e.target.value)}
-              className="w-full text-xs font-bold rounded-lg border border-slate-200 p-2 bg-slate-50 text-slate-850 font-mono focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
-            >
-              {availableMonthsList.map(item => (
-                <option key={item.key} value={item.key}>{item.label}</option>
-              ))}
-            </select>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[8px] uppercase font-bold text-slate-400 block mb-0.5">Year</label>
+                <select
+                  value={numYear}
+                  onChange={(e) => {
+                    const newYear = e.target.value;
+                    const combined = `${newYear}-${numMonth}`;
+                    setSelectedMonthKey(combined);
+                  }}
+                  className="w-full text-xs font-bold rounded-lg border border-slate-200 p-1.5 bg-slate-50 text-slate-850 font-mono focus:bg-white focus:outline-none"
+                >
+                  {yearsList.map(y => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-[8px] uppercase font-bold text-slate-400 block mb-0.5">Month</label>
+                <select
+                  value={numMonth}
+                  onChange={(e) => {
+                    const newMonth = e.target.value;
+                    const combined = `${numYear}-${newMonth}`;
+                    setSelectedMonthKey(combined);
+                  }}
+                  className="w-full text-xs font-bold rounded-lg border border-slate-200 p-1.5 bg-slate-50 text-slate-850 font-mono focus:bg-white focus:outline-none"
+                >
+                  {monthsArray.map(m => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
 
           {/* Site selective Step */}
@@ -684,20 +827,6 @@ export default function LogBook({ db, onUpdateDb, selectedMonth, activeGensetId,
                       <Clock className="h-4 w-4 text-blue-600" />
                       Generator Clock Timings List
                     </h3>
-                    <div className="text-left sm:text-right flex flex-col sm:items-end gap-0.5 text-xs font-medium text-slate-500">
-                      <div>Clock Log: <span className="text-blue-600 font-bold bg-blue-50 px-1.5 py-0.5 rounded">{formatMinutesToTime(grandTotalMins)} Hrs</span></div>
-                      <div className="mt-1">Meter Run: <span className="text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">{formatMinutesToTime(meterDifferenceMins)} Hrs</span></div>
-                      <div className="mt-1 font-semibold">
-                        Difference: {' '}
-                        {meterDifferenceMins - grandTotalMins === 0 ? (
-                          <span className="text-emerald-700 bg-emerald-100/80 px-1.5 py-0.5 rounded font-mono font-bold">0 Hrs (Perfect Match)</span>
-                        ) : meterDifferenceMins - grandTotalMins > 0 ? (
-                          <span className="text-rose-750 bg-rose-50 px-1.5 py-0.5 rounded font-mono font-bold">+{formatMinutesToTime(meterDifferenceMins - grandTotalMins)} Hrs remaining</span>
-                        ) : (
-                          <span className="text-amber-705 bg-amber-50 px-1.5 py-0.5 rounded font-mono font-bold">-{formatMinutesToTime(grandTotalMins - meterDifferenceMins)} Hrs over-logged</span>
-                        )}
-                      </div>
-                    </div>
                   </div>
 
                   {/* Log entries table */}
@@ -710,7 +839,7 @@ export default function LogBook({ db, onUpdateDb, selectedMonth, activeGensetId,
                           <th className="py-2.5 px-3">Start Clock</th>
                           <th className="py-2.5 px-3">End Clock</th>
                           <th className="py-2.5 px-3 text-right">Run Duration</th>
-                          <th className="py-2.5 px-3 text-center w-16">Delete</th>
+                          <th className="py-2.5 px-3 text-center w-24">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-150 font-mono text-slate-700">
@@ -723,6 +852,61 @@ export default function LogBook({ db, onUpdateDb, selectedMonth, activeGensetId,
                         ) : (
                           currentSiteLog.entries.map((entry, index) => {
                             const entryLabelDate = entry.date ? formatDateDMY(entry.date) : 'N/A';
+                            const isEditing = editingEntryId === entry.id;
+
+                            if (isEditing) {
+                              return (
+                                <tr key={entry.id} className="bg-blue-50/40 hover:bg-blue-50/60 transition">
+                                  <td className="py-2.5 px-3 text-center font-sans text-slate-400 font-bold">{index + 1}</td>
+                                  <td className="py-2 px-3">
+                                    <input
+                                      type="date"
+                                      value={editEntryDate}
+                                      onChange={(e) => setEditEntryDate(e.target.value)}
+                                      className="text-xs font-sans p-1 rounded border border-slate-300 bg-white"
+                                    />
+                                  </td>
+                                  <td className="py-2 px-3 text-left">
+                                    <input
+                                      type="time"
+                                      value={editEntryStart}
+                                      onChange={(e) => setEditEntryStart(e.target.value)}
+                                      className="text-xs font-mono p-1 rounded border border-slate-300 bg-white"
+                                    />
+                                  </td>
+                                  <td className="py-2 px-3 text-left">
+                                    <input
+                                      type="time"
+                                      value={editEntryEnd}
+                                      onChange={(e) => setEditEntryEnd(e.target.value)}
+                                      className="text-xs font-mono p-1 rounded border border-slate-300 bg-white"
+                                    />
+                                  </td>
+                                  <td className="py-2 px-3 text-right font-extrabold text-blue-755">
+                                    {formatMinutesToTime(calculateDurationMinutes(editEntryStart, editEntryEnd))} Hrs
+                                  </td>
+                                  <td className="py-2 px-3 text-center font-sans">
+                                    <div className="flex items-center justify-center gap-1.5">
+                                      <button
+                                        onClick={handleSaveEdit}
+                                        className="text-emerald-700 hover:text-emerald-900 p-1 bg-emerald-50 rounded border border-emerald-200 cursor-pointer"
+                                        title="Save differences"
+                                      >
+                                        <Check className="h-3.5 w-3.5" />
+                                      </button>
+                                      <button
+                                        onClick={handleCancelEdit}
+                                        className="text-slate-500 hover:text-slate-800 p-1 bg-slate-100 rounded border border-slate-200 cursor-pointer"
+                                        title="Cancel edit"
+                                      >
+                                        <X className="h-3.5 w-3.5" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            }
+
                             return (
                               <tr key={entry.id} className="hover:bg-slate-50/50 transition">
                                 <td className="py-2.5 px-3 text-center font-sans text-slate-400 font-bold">{index + 1}</td>
@@ -732,14 +916,25 @@ export default function LogBook({ db, onUpdateDb, selectedMonth, activeGensetId,
                                 <td className="py-2.5 px-3 text-right font-extrabold text-blue-750">
                                   {formatMinutesToTime(entry.durationMinutes)} Hrs
                                 </td>
-                                <td className="py-2.5 px-3 text-center">
-                                  <button
-                                    onClick={() => handleRemoveClockRow(entry.id)}
-                                    disabled={!!currentSiteLog.isSubmitted}
-                                    className="text-slate-400 hover:text-red-650 p-1 transition rounded cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                                  >
-                                    <Trash2 className="h-4 w-4 mx-auto" />
-                                  </button>
+                                <td className="py-2.5 px-3 text-center font-sans">
+                                  <div className="flex items-center justify-center gap-1.5">
+                                    <button
+                                      onClick={() => startEditing(entry)}
+                                      disabled={!!currentSiteLog.isSubmitted}
+                                      className="text-slate-400 hover:text-blue-650 p-1 transition rounded cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                                      title="Edit entry"
+                                    >
+                                      <Edit2 className="h-3.5 w-3.5 text-blue-500" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleRemoveClockRow(entry.id)}
+                                      disabled={!!currentSiteLog.isSubmitted}
+                                      className="text-slate-400 hover:text-red-650 p-1 transition rounded cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                                      title="Delete entry"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5 text-rose-500" />
+                                    </button>
+                                  </div>
                                 </td>
                               </tr>
                             );
@@ -748,7 +943,7 @@ export default function LogBook({ db, onUpdateDb, selectedMonth, activeGensetId,
 
                         {currentSiteLog.entries && currentSiteLog.entries.length > 0 && (
                           <tr className="bg-slate-50 font-sans font-extrabold text-slate-800 border-t border-slate-200">
-                            <td colSpan={4} className="py-2.5 px-3 text-right uppercase text-xs tracking-wider">
+                            <td colSpan={4} className="py-2.5 px-3 text-right uppercase text-xs tracking-wider border-r border-slate-150">
                               Grand Total Log Hours:
                             </td>
                             <td className="py-2.5 px-3 text-right font-mono text-blue-700 text-sm font-black">
@@ -765,10 +960,10 @@ export default function LogBook({ db, onUpdateDb, selectedMonth, activeGensetId,
                   {!currentSiteLog.isSubmitted ? (
                     <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2.5 mt-2">
                       <h4 className="text-[10px] font-extrabold text-slate-600 uppercase tracking-widest pl-1">
-                        Add Generator Clock Timing Record
+                        Add Generator Clock Timing Record (with duration preview)
                       </h4>
                       
-                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+                      <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 items-end">
                         
                         <div className="space-y-1">
                           <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">
@@ -779,7 +974,7 @@ export default function LogBook({ db, onUpdateDb, selectedMonth, activeGensetId,
                             type="date"
                             value={newEntryDate}
                             min={`${selectedMonthKey}-01`}
-                            max={`${selectedMonthKey}-31`}
+                            max={`${selectedMonthKey}-${new Date(parseInt(numYear,10), parseInt(numMonth,10), 0).getDate()}`}
                             onChange={(e) => setNewEntryDate(e.target.value)}
                             className="w-full text-xs font-semibold p-1.5 rounded border border-slate-200 bg-white"
                           />
@@ -809,6 +1004,15 @@ export default function LogBook({ db, onUpdateDb, selectedMonth, activeGensetId,
                           />
                         </div>
 
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">
+                            Duration Preview
+                          </label>
+                          <div className="p-1.5 border border-slate-200 rounded text-xs font-bold font-mono bg-blue-50 text-blue-700 text-center h-8.5 flex items-center justify-center">
+                            {formatMinutesToTime(livePreviewDuration)} Hrs
+                          </div>
+                        </div>
+
                         <button
                           type="button"
                           onClick={handleAppendClockRow}
@@ -825,6 +1029,35 @@ export default function LogBook({ db, onUpdateDb, selectedMonth, activeGensetId,
                       ⚠️ Data Entry is locked because this site log sheet has been **submitted**. Please retract submission to adjust or add new logs.
                     </div>
                   )}
+
+                  {/* Real-time audit metrics summary moved to the bottom of the list as explicitly requested */}
+                  <div className="bg-slate-55 p-3 rounded-xl border border-slate-200 mt-3 font-mono text-xs">
+                    <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 font-sans">
+                      Audit Reconciliation Metrics Summary
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-center">
+                      <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                        <span className="text-[9px] uppercase font-sans font-extrabold text-slate-400 block mb-1">Clock Log Total</span>
+                        <strong className="text-blue-600 text-sm font-black">{formatMinutesToTime(grandTotalMins)} Hrs</strong>
+                      </div>
+                      <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                        <span className="text-[9px] uppercase font-sans font-extrabold text-slate-400 block mb-1">Meter Run Total</span>
+                        <strong className="text-emerald-600 text-sm font-black">{formatMinutesToTime(meterDifferenceMins)} Hrs</strong>
+                      </div>
+                      <div className={`p-2.5 rounded-lg border ${meterDifferenceMins - grandTotalMins === 0 ? 'bg-emerald-50 border-emerald-250 text-emerald-800' : 'bg-amber-50 border-amber-250 text-amber-900'}`}>
+                        <span className="text-[9px] uppercase font-sans font-extrabold text-slate-400 block mb-1">Calculation Difference</span>
+                        <strong className="text-sm font-black block">
+                          {meterDifferenceMins - grandTotalMins === 0 ? (
+                            <span>0 Hrs (Perfect Match)</span>
+                          ) : meterDifferenceMins - grandTotalMins > 0 ? (
+                            <span>+{formatMinutesToTime(meterDifferenceMins - grandTotalMins)} Hrs remaining</span>
+                          ) : (
+                            <span>-{formatMinutesToTime(grandTotalMins - meterDifferenceMins)} Hrs over-logged</span>
+                          )}
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Audit & Submit options zone as explicitly requested */}
