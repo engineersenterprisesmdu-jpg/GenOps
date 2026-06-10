@@ -612,7 +612,11 @@ export default function BillingSheet({ db, onUpdateDb, selectedMonth, setSelecte
                 <tbody className="divide-y divide-slate-150">
                   {divisionRows.map(row => {
                     const isRowNil = !!row.log.isNilSubmission;
-                    const clockHrsStr = isRowNil ? '0.00 (NIL)' : formatMinutesToTime(row.clockMins);
+                    const clockHrsStr = isRowNil
+                      ? '0.00 (NIL)'
+                      : row.genset.meterFormat === 'DECIMAL'
+                        ? `${formatMinutesToDecimal(row.clockMins, 2)} Hrs`
+                        : formatMinutesToTime(row.clockMins);
 
                     return (
                       <tr 

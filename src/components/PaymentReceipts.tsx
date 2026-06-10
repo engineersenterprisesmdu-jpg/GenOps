@@ -8,7 +8,8 @@ import { AppDatabase, SiteLog, Genset, Client, BankDetails } from '../types';
 import { 
   formatCurrency, 
   parseMeterToMinutes,
-  formatMinutesToDecimal 
+  formatMinutesToDecimal,
+  formatMinutesToTime
 } from '../utils/time';
 import { 
   Receipt, 
@@ -589,7 +590,11 @@ export default function PaymentReceipts({ db, onUpdateDb, selectedMonth, setSele
                       {/* Computed Bill Total */}
                       <td className="py-3.5 px-3 text-right">
                         <span className="font-bold text-slate-800 font-mono text-xs">{formatCurrency(item.billCalc.grandTotal)}</span>
-                        <span className="text-[9px] text-slate-400 block font-medium font-mono">{formatMinutesToDecimal(item.billCalc.minutes)} Hrs</span>
+                        <span className="text-[9px] text-slate-400 block font-medium font-mono">
+                          {item.genset.meterFormat === 'DECIMAL'
+                            ? `${formatMinutesToDecimal(item.billCalc.minutes, 2)} Hrs`
+                            : `${formatMinutesToTime(item.billCalc.minutes)} Hrs`}
+                        </span>
                       </td>
 
                       {/* Settlement State Button / Badge */}

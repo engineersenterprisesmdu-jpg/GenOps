@@ -44,6 +44,29 @@ function InvoicePage({ db, gensetId, selectedMonth, useLetterhead, includeSeal, 
     return db.clients.find(c => c.id === genset.clientId);
   }, [db.clients, genset]);
 
+  // Dynamic lists from DB with fallbacks for legacy/undefined arrays
+  const companiesList = useMemo(() => {
+    return db.companies && db.companies.length > 0 
+      ? db.companies 
+      : [{ ...db.company, id: 'co-engineers' }];
+  }, [db.companies, db.company]);
+
+  const bankAccountsList = useMemo(() => {
+    return db.bankAccounts && db.bankAccounts.length > 0
+      ? db.bankAccounts
+      : [{ ...db.company.bankDetails, id: 'bank-canara' }];
+  }, [db.bankAccounts, db.company]);
+
+  const activeCompany = useMemo(() => {
+    if (!genset) return companiesList[0];
+    return companiesList.find(c => c.id === genset.companyId) || companiesList[0];
+  }, [companiesList, genset]);
+
+  const activeBank = useMemo(() => {
+    if (!genset) return bankAccountsList[0];
+    return bankAccountsList.find(b => b.id === genset.bankAccountId) || bankAccountsList[0];
+  }, [bankAccountsList, genset]);
+
   const log = useMemo(() => {
     if (!genset) return null;
     return db.siteLogs.find(l => l.gensetId === genset.id && l.monthKey === selectedMonth) || {
@@ -133,10 +156,15 @@ function InvoicePage({ db, gensetId, selectedMonth, useLetterhead, includeSeal, 
       year: '2-digit'
     });
 
+    const isDecimal = genset.meterFormat === 'DECIMAL';
+    const durationHrsStr = isDecimal
+      ? `${formatMinutesToDecimal(clockMins, 2)}`
+      : formatMinutesToTime(clockMins);
+
     return {
       clockMins,
       totalHrsDec,
-      durationHrsStr: formatMinutesToTime(clockMins),
+      durationHrsStr,
       fuelPrice,
       costPerHour,
       subtotalCost,
@@ -170,18 +198,18 @@ function InvoicePage({ db, gensetId, selectedMonth, useLetterhead, includeSeal, 
         <div className="border-b-2 border-black pb-3 text-left print:text-left">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:flex-row print:items-center print:justify-between">
             <div className="text-left print:text-left">
-              {db.company.logoUrl ? (
+              {activeCompany.logoUrl ? (
                 <img 
                   referrerPolicy="no-referrer" 
-                  src={db.company.logoUrl} 
+                  src={activeCompany.logoUrl} 
                   alt="Company Logo" 
                   className="h-14 object-contain mb-2 max-w-[300px] inline-block" 
                 />
               ) : null}
               
-              {(!db.company.logoUrl || !db.company.hideCompanyNameWithLogo) && (
+              {(!activeCompany.logoUrl || !activeCompany.hideCompanyNameWithLogo) && (
                 <div className="mt-1">
-                  {db.company.name === 'ENGINEERS ENTERPRISES' ? (
+                  {activeCompany.name === 'ENGINEERS ENTERPRISES' ? (
                     <>
                       <h1 className="text-3xl font-extrabold tracking-widest text-[#1e293b] uppercase" style={{ fontFamily: 'monospace, sans-serif' }}>
                         ENGINEERS
@@ -190,7 +218,7 @@ function InvoicePage({ db, gensetId, selectedMonth, useLetterhead, includeSeal, 
                     </>
                   ) : (
                     <h1 className="text-xl font-black uppercase tracking-wider text-slate-900 leading-tight">
-                      {db.company.name}
+                      {activeCompany.name}
                     </h1>
                   )}
                   <span className="text-[9px] font-extrabold px-1.5 py-0.5 bg-black text-white rounded font-mono mt-1 inline-block uppercase">
@@ -202,17 +230,17 @@ function InvoicePage({ db, gensetId, selectedMonth, useLetterhead, includeSeal, 
             
             {/* Company address block right side */}
             <div className="text-left sm:text-right print:text-right text-[10px] font-medium text-slate-700 mt-2 sm:mt-0 print:mt-0 font-sans space-y-0.5 sm:max-w-xs print:max-w-xs leading-normal">
-              <p className="font-bold text-slate-900">{db.company.address}</p>
-              <p>Cell: {db.company.contactNumber} {db.company.email ? ` | ${db.company.email}` : ''}</p>
+              <p className="font-bold text-slate-900">{activeCompany.address}</p>
+              <p>Cell: {activeCompany.contactNumber} {activeCompany.email ? ` | ${activeCompany.email}` : ''}</p>
               <div className="flex justify-start sm:justify-end print:justify-end gap-x-3 font-mono text-[9px] pt-1 mt-1 border-t border-slate-200">
                 <div>
                   <span className="text-slate-400 font-sans">GST NO: </span>
-                  <strong className="text-slate-900">{db.company.gstin}</strong>
+                  <strong className="text-slate-900">{activeCompany.gstin}</strong>
                 </div>
-                {db.company.pan && (
+                {activeCompany.pan && (
                   <div>
                     <span className="text-slate-400 font-sans">PAN: </span>
-                    <strong className="text-slate-900">{db.company.pan}</strong>
+                    <strong className="text-slate-900">{activeCompany.pan}</strong>
                   </div>
                 )}
               </div>
@@ -389,28 +417,28 @@ function InvoicePage({ db, gensetId, selectedMonth, useLetterhead, includeSeal, 
           </span>
           <div className="grid grid-cols-3 gap-0.5 mt-2 font-medium">
             <span className="text-slate-450 uppercase font-sans text-[9px] block">Bank Name:</span>
-            <span className="col-span-2 font-bold text-slate-800">{db.company.bankDetails.bankName}</span>
+            <span className="col-span-2 font-bold text-slate-800">{activeBank.bankName}</span>
             
             <span className="text-slate-450 uppercase font-sans text-[9px] block">Branch:</span>
-            <span className="col-span-2 font-bold text-slate-800 leading-tight">{db.company.bankDetails.branch}</span>
+            <span className="col-span-2 font-bold text-slate-800 leading-tight">{activeBank.branch}</span>
             
             <span className="text-slate-450 uppercase font-sans text-[9px] block">A/C No.:</span>
-            <strong className="col-span-2 font-mono text-black font-bold tracking-wide">{db.company.bankDetails.accountNumber}</strong>
+            <strong className="col-span-2 font-mono text-black font-bold tracking-wide">{activeBank.accountNumber}</strong>
             
             <span className="text-slate-450 uppercase font-sans text-[9px] block">IFSC Code:</span>
-            <strong className="col-span-2 font-mono text-black select-all font-semibold">{db.company.bankDetails.ifscCode}</strong>
+            <strong className="col-span-2 font-mono text-black select-all font-semibold">{activeBank.ifscCode}</strong>
           </div>
         </div>
 
         <div className="p-3 text-center flex flex-col justify-between relative min-h-36">
           <div className="text-[10px] font-extrabold text-slate-700 tracking-wider font-sans">
-            For {db.company.name || 'ENGINEERS ENTERPRISES'}
+            For {activeCompany.name || 'ENGINEERS ENTERPRISES'}
           </div>
           
           {/* Optional Signature seal overlay */}
-          {includeSeal && db.company.signatureUrl ? (
+          {includeSeal && activeCompany.signatureUrl ? (
             <div className="my-1.5 flex justify-center mix-blend-multiply">
-              <img referrerPolicy="no-referrer" src={db.company.signatureUrl} alt="Authorized Sign" className="h-16 object-contain" />
+              <img referrerPolicy="no-referrer" src={activeCompany.signatureUrl} alt="Authorized Sign" className="h-16 object-contain" />
             </div>
           ) : (
             <>
